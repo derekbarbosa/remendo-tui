@@ -6,14 +6,8 @@
 //! accordingly. No I/O, no side effects.
 
 use crate::app::{App, RunningState};
+use crate::client::ApiError;
 use crate::models::{MailingList, Paginated, Patchset, PatchsetDetail, ServerStats};
-
-/// Placeholder error type for API responses.
-///
-/// Will be replaced by `ApiError` from `04-api-client` when that
-/// feature lands. Using a boxed error keeps the `Message` shape
-/// stable across the dependency boundary.
-pub type ApiResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 /// Every action the application can take.
 ///
@@ -30,13 +24,13 @@ pub enum Message {
     /// Terminal was resized.
     Resize(u16, u16),
     /// Patchset list loaded from API.
-    PatchsetsLoaded(ApiResult<Paginated<Patchset>>),
+    PatchsetsLoaded(Result<Paginated<Patchset>, ApiError>),
     /// Patchset detail loaded from API.
-    PatchsetDetailLoaded(Box<ApiResult<PatchsetDetail>>),
+    PatchsetDetailLoaded(Box<Result<PatchsetDetail, ApiError>>),
     /// Server stats loaded from API.
-    StatsLoaded(ApiResult<ServerStats>),
+    StatsLoaded(Result<ServerStats, ApiError>),
     /// Mailing lists loaded from API.
-    ListsLoaded(ApiResult<Vec<MailingList>>),
+    ListsLoaded(Result<Vec<MailingList>, ApiError>),
 }
 
 /// Apply a message to the application state.
@@ -133,13 +127,16 @@ mod tests {
     #[test]
     fn patchsets_loaded_error() {
         let mut app = App::new(Config::default());
-        let err: Box<dyn std::error::Error + Send + Sync> = "network error".into();
+        let err = ApiError::Network {
+            source: "connection refused".into(),
+            remote: "test".to_string(),
+        };
         update(&mut app, Message::PatchsetsLoaded(Err(err)));
         assert!(app.error_state.is_some());
         assert!(
             app.error_state
                 .as_deref()
-                .is_some_and(|s| s.contains("network error"))
+                .is_some_and(|s| s.contains("connection refused"))
         );
     }
 
@@ -158,8 +155,15 @@ mod tests {
     #[test]
     fn error_state_set_on_api_failure() {
         let mut app = App::new(Config::default());
-        let err: Box<dyn std::error::Error + Send + Sync> = "timeout".into();
+        let err = ApiError::Timeout {
+            endpoint: "/api/stats".to_string(),
+            duration: std::time::Duration::from_secs(5),
+        };
         update(&mut app, Message::StatsLoaded(Err(err)));
-        assert_eq!(app.error_state.as_deref(), Some("timeout"));
+        assert!(
+            app.error_state
+                .as_deref()
+                .is_some_and(|s| s.contains("timed out"))
+        );
     }
 }
