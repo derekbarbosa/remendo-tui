@@ -87,11 +87,12 @@ the patchset list for the active remote on the right.
 |-----|--------|
 | `j` / `k` | Scroll down / up |
 | `Ctrl-d` / `Ctrl-u` | Half-page down / up |
+| `]` / `[` | Next / previous page |
 | `Enter` | Open selected patchset |
 | `Esc` | Close current view |
 | `Tab` / `Shift-Tab` | Next / previous remote |
+| `Ctrl-s` | Focus sidebar |
 | `/` | Search |
-| `b` | Toggle bookmark |
 | `r` | View raw review log |
 | `Ctrl-r` | Refresh |
 | `?` | Help |
