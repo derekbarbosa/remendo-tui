@@ -209,8 +209,10 @@ F1 through F12
 | `view_raw_log` | `r` | View the raw review log in `$EDITOR` |
 | `help` | `?` | Show the help overlay |
 | `focus_sidebar` | `Ctrl-s` | Focus the sidebar panel |
-| `next_comment` | `n` | Jump to the next review comment |
-| `prev_comment` | `N` | Jump to the previous review comment |
+| `next_comment` | `n` | Jump to the next review comment *(planned)* |
+| `prev_comment` | `N` | Jump to the previous review comment *(planned)* |
+| `next_page` | `]` | Navigate to the next page of results |
+| `prev_page` | `[` | Navigate to the previous page of results |
 
 Unknown action names in the config are silently ignored (with a logged
 warning). This ensures forward compatibility when upgrading `remendo`.

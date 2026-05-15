@@ -91,6 +91,8 @@ help              = "?"
 focus_sidebar     = "C-s"
 next_comment      = "n"
 prev_comment      = "N"
+next_page         = "]"
+prev_page         = "["
 
 # ---------------------------------------------------------------------------
 # Theme
