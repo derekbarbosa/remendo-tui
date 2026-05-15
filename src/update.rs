@@ -69,6 +69,8 @@ pub enum Message {
     SearchSubmit,
     /// Cancel search mode (Esc).
     SearchCancel,
+    /// Open the raw review log in the configured editor.
+    ViewRawLog,
 }
 
 /// Apply a message to the application state and return any
@@ -183,6 +185,48 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
         | Message::SearchInput(_)
         | Message::SearchSubmit
         | Message::SearchCancel => handle_search(app, &msg),
+        Message::ViewRawLog => handle_view_raw_log(app),
+    }
+}
+
+/// Handle `Message::ViewRawLog` — collect review content and open in editor.
+fn handle_view_raw_log(app: &App) -> Cmd {
+    use std::fmt::Write;
+
+    let Some(ref detail) = app.selected_detail else {
+        return Cmd::None;
+    };
+
+    let mut log = String::new();
+    for review in &detail.reviews {
+        let _ = writeln!(
+            log,
+            "=== Review {} (patch {}) ===",
+            review.id, review.patch_id
+        );
+        let _ = writeln!(
+            log,
+            "Status: {} | Model: {}",
+            review.status,
+            review.model.as_deref().unwrap_or("?")
+        );
+        if let Some(ref summary) = review.summary {
+            let _ = write!(log, "\n--- Summary ---\n{summary}\n");
+        }
+        if let Some(ref inline) = review.inline_review {
+            let _ = write!(log, "\n--- Inline Review ---\n{inline}\n");
+        }
+        log.push_str("\n\n");
+    }
+
+    if log.is_empty() {
+        return Cmd::None;
+    }
+
+    let editor = app.config.resolved_editor();
+    Cmd::OpenEditor {
+        content: log,
+        editor,
     }
 }
 
