@@ -188,21 +188,10 @@ const fn is_retryable_status(status: u16) -> bool {
 }
 
 /// Convert a reqwest JSON error into an [`ApiError::Deserialization`].
-///
-/// Since `reqwest::Error` doesn't expose the inner serde error
-/// directly, we create a synthetic `serde_json::Error` by parsing
-/// an intentionally invalid JSON string.
 fn make_deser_error(e: &reqwest::Error, endpoint: &str) -> ApiError {
-    // Intentionally parse invalid JSON to produce a serde_json::Error
-    // carrying the reqwest message as context.
-    match serde_json::from_str::<serde_json::Value>(&format!("INVALID: reqwest json error: {e}")) {
-        Err(serde_err) => ApiError::Deserialization {
-            source: serde_err,
-            endpoint: endpoint.to_string(),
-        },
-        // Unreachable: the string above is never valid JSON, but
-        // we handle the Ok branch to satisfy the no-unwrap rule.
-        Ok(_) => ApiError::Configuration(format!("unexpected deser success for: {e}")),
+    ApiError::Deserialization {
+        message: e.to_string(),
+        endpoint: endpoint.to_string(),
     }
 }
 

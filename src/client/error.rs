@@ -24,8 +24,8 @@ pub enum ApiError {
     },
     /// Failed to parse the JSON response body.
     Deserialization {
-        /// The serde error.
-        source: serde_json::Error,
+        /// Description of the parse error.
+        message: String,
         /// The endpoint that produced the bad response.
         endpoint: String,
     },
@@ -62,8 +62,8 @@ impl fmt::Display for ApiError {
                 }
                 Ok(())
             }
-            Self::Deserialization { source, endpoint } => {
-                write!(f, "JSON parse error on {endpoint}: {source}")
+            Self::Deserialization { message, endpoint } => {
+                write!(f, "JSON parse error on {endpoint}: {message}")
             }
             Self::Timeout { endpoint, duration } => {
                 write!(f, "request to {endpoint} timed out after {duration:?}")
@@ -77,8 +77,10 @@ impl std::error::Error for ApiError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Network { source, .. } => Some(source.as_ref()),
-            Self::Deserialization { source, .. } => Some(source),
-            Self::HttpStatus { .. } | Self::Timeout { .. } | Self::Configuration(_) => None,
+            Self::Deserialization { .. }
+            | Self::HttpStatus { .. }
+            | Self::Timeout { .. }
+            | Self::Configuration(_) => None,
         }
     }
 }
