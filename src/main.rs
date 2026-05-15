@@ -6,6 +6,9 @@
 /// Application state and lifecycle.
 pub mod app;
 
+/// Sashiko API client: trait, HTTP implementation, error types.
+pub mod client;
+
 /// Application configuration: remotes, keybindings, theme, paths.
 pub mod config;
 
