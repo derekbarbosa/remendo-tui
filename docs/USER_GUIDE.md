@@ -40,13 +40,24 @@ remote. Press `q` to quit.
 
 ### Adding Your First Remote
 
-Create the config file at `~/.config/remendo/config.toml`:
+The easiest way to get started is to copy the example config from the
+repository:
+
+```sh
+mkdir -p ~/.config/remendo
+cp config.example.toml ~/.config/remendo/config.toml
+```
+
+Then edit `~/.config/remendo/config.toml` and set your Sashiko URL:
 
 ```toml
 [[remotes]]
 name = "upstream"
 url = "https://sashiko.dev"
 ```
+
+The example file is fully commented and documents every available option.
+See [`config.example.toml`](../config.example.toml) for details.
 
 Launch again. The sidebar shows "upstream" as your active mailbox, and
 the main pane loads the patchset list from sashiko.dev.

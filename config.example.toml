@@ -1,0 +1,115 @@
+# remendo configuration file
+#
+# Copy this file to your config directory and edit to taste:
+#
+#   mkdir -p ~/.config/remendo
+#   cp config.example.toml ~/.config/remendo/config.toml
+#
+# All fields have sensible defaults. You only need to add at least one
+# [[remotes]] entry with a valid Sashiko URL. Everything else is optional.
+#
+# Full reference: docs/CONFIGURATION.md
+
+# ---------------------------------------------------------------------------
+# Editor
+# ---------------------------------------------------------------------------
+# Command used to open raw review logs. If not set, falls back to
+# $VISUAL, then $EDITOR, then "vi".
+#
+# editor = "nvim"
+
+# ---------------------------------------------------------------------------
+# Cache
+# ---------------------------------------------------------------------------
+[cache]
+# Time-to-live for cached API responses, in seconds (default: 300).
+ttl_seconds = 300
+
+# Override for the cache directory.
+# Default: $XDG_CACHE_HOME/remendo/ (typically ~/.cache/remendo/)
+#
+# dir = "/tmp/remendo-cache"
+
+# ---------------------------------------------------------------------------
+# Remotes
+# ---------------------------------------------------------------------------
+# Each [[remotes]] entry defines a Sashiko instance to connect to.
+# remendo treats each remote as a separate "mailbox" in the sidebar.
+#
+# The first remote listed is the default active mailbox on launch.
+# Remote order here determines sidebar order.
+
+[[remotes]]
+name = "my-instance"
+url = "https://sashiko.example.com"
+
+# Uncomment to use a bearer token from an environment variable:
+# auth_env = "SASHIKO_TOKEN"
+
+# Per-remote timeout in seconds (default: 15).
+# timeout_seconds = 15
+
+# Maximum retry attempts on transient failures (default: 3).
+# Retries use exponential backoff (500ms base, 2x factor, 10s max).
+# Only 5xx errors and connection failures are retried.
+# max_retries = 3
+
+# To add more remotes, repeat the [[remotes]] block:
+#
+# [[remotes]]
+# name = "staging"
+# url = "https://sashiko-staging.example.com"
+# timeout_seconds = 30
+
+# ---------------------------------------------------------------------------
+# Keybindings
+# ---------------------------------------------------------------------------
+# Maps action names to key combinations. Only override keys you want to
+# change -- unspecified actions keep their defaults.
+#
+# Modifier prefixes: C- (Ctrl), S- (Shift), A- (Alt)
+# Special keys: Enter, Tab, Esc, Space, Backspace, Delete,
+#               Up, Down, Left, Right, Home, End, PageUp, PageDown,
+#               F1 through F12
+#
+# Full action list: docs/CONFIGURATION.md#available-actions
+[keybindings]
+quit              = "q"
+scroll_down       = "j"
+scroll_up         = "k"
+scroll_half_page_down = "C-d"
+scroll_half_page_up   = "C-u"
+next_mailbox      = "Tab"
+prev_mailbox      = "S-Tab"
+open_thread       = "Enter"
+close_thread      = "Esc"
+refresh           = "C-r"
+search            = "/"
+bookmark_toggle   = "b"
+view_raw_log      = "r"
+help              = "?"
+focus_sidebar     = "C-s"
+next_comment      = "n"
+prev_comment      = "N"
+
+# ---------------------------------------------------------------------------
+# Theme
+# ---------------------------------------------------------------------------
+# Semantic color roles for the TUI. Colors can be hex "#rrggbb" or named:
+# black, red, green, yellow, blue, magenta, cyan, white, gray, dark_gray,
+# light_red, light_green, light_yellow, light_blue, light_magenta,
+# light_cyan, reset
+#
+# Invalid colors fall back to the terminal default (never crashes).
+[theme.colors]
+foreground  = "#d8d8d8"
+background  = "#181818"
+accent      = "#6a9fb5"
+error       = "#ac4242"
+warning     = "#f4bf75"
+success     = "#90a959"
+info        = "#75b5aa"
+selected_bg = "#383838"
+selected_fg = "#f8f8f8"
+border      = "#585858"
+muted       = "#6b6b6b"
