@@ -3,9 +3,11 @@
 //! Defines the top-level `App` struct (all application state) and
 //! the `RunningState` enum controlling the main event loop.
 
+use crate::bookmarks::BookmarkStore;
 use crate::client::types::ListParams;
 use crate::config::Config;
 use crate::models::{MailingList, Paginated, Patchset, PatchsetDetail, ServerStats};
+use std::path::PathBuf;
 
 /// Top-level application state.
 ///
@@ -56,6 +58,14 @@ pub struct App {
     pub sidebar_section: SidebarSection,
     /// Scroll index within the mailing list section (0 = "All").
     pub sidebar_list_index: usize,
+    /// Set of bookmarked patchsets.
+    pub bookmarks: BookmarkStore,
+    /// Path to the bookmarks persistence file.
+    pub bookmarks_path: PathBuf,
+    /// Cached line positions of comment boundaries in the detail view.
+    pub comment_positions: Vec<usize>,
+    /// Index into `comment_positions` for the current comment.
+    pub current_comment_index: Option<usize>,
 }
 
 impl App {
@@ -95,6 +105,10 @@ impl App {
             search_cursor: 0,
             sidebar_section: SidebarSection::default(),
             sidebar_list_index: 0,
+            bookmarks: BookmarkStore::new(),
+            bookmarks_path: PathBuf::new(),
+            comment_positions: vec![],
+            current_comment_index: None,
         }
     }
 

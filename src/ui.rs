@@ -220,40 +220,11 @@ fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, p
         .patchsets
         .items
         .iter()
-        .map(|ps| {
-            let status_style = status_color(ps.status, palette);
-            let status_cell = Cell::from(ps.status.to_string()).style(status_style);
-
-            let subject_cell = Cell::from(ps.subject());
-            let author_cell =
-                Cell::from(ps.author()).style(Style::default().fg(palette.muted.color()));
-
-            let date_cell = Cell::from(format_date(ps.date))
-                .style(Style::default().fg(palette.muted.color()));
-
-            let findings_line = format_findings(&ps.findings, palette);
-            let findings_cell = Cell::from(findings_line);
-
-            let subsystems_text = if ps.subsystems.is_empty() {
-                String::new()
-            } else {
-                ps.subsystems.join(", ")
-            };
-            let subsystems_cell =
-                Cell::from(subsystems_text).style(Style::default().fg(palette.muted.color()));
-
-            Row::new(vec![
-                status_cell,
-                subject_cell,
-                author_cell,
-                date_cell,
-                findings_cell,
-                subsystems_cell,
-            ])
-        })
+        .map(|ps| build_patchset_row(app, ps, palette))
         .collect();
 
     let header = Row::new(vec![
+        Cell::from(""),
         Cell::from("Status"),
         Cell::from("Subject"),
         Cell::from("Author"),
@@ -264,6 +235,7 @@ fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, p
     .style(Style::default().fg(palette.accent.color()).bold());
 
     let widths = [
+        Constraint::Length(3),
         Constraint::Length(14),
         Constraint::Min(30),
         Constraint::Length(20),
@@ -391,6 +363,44 @@ fn format_findings<'a>(findings: &FindingCounts, palette: &'a ColorPalette) -> L
     }
 
     Line::from(spans)
+}
+
+/// Build a single table row for a patchset in the list view.
+fn build_patchset_row<'a>(
+    app: &'a App,
+    ps: &'a crate::models::Patchset,
+    palette: &'a ColorPalette,
+) -> Row<'a> {
+    let bookmark_cell = if app.bookmarks.contains(&app.active_remote, ps.id) {
+        Cell::from(" * ").style(Style::default().fg(palette.accent.color()))
+    } else {
+        Cell::from("   ")
+    };
+
+    let status_style = status_color(ps.status, palette);
+    let status_cell = Cell::from(ps.status.to_string()).style(status_style);
+    let subject_cell = Cell::from(ps.subject());
+    let author_cell = Cell::from(ps.author()).style(Style::default().fg(palette.muted.color()));
+    let date_cell =
+        Cell::from(format_date(ps.date)).style(Style::default().fg(palette.muted.color()));
+    let findings_cell = Cell::from(format_findings(&ps.findings, palette));
+    let subsystems_text = if ps.subsystems.is_empty() {
+        String::new()
+    } else {
+        ps.subsystems.join(", ")
+    };
+    let subsystems_cell =
+        Cell::from(subsystems_text).style(Style::default().fg(palette.muted.color()));
+
+    Row::new(vec![
+        bookmark_cell,
+        status_cell,
+        subject_cell,
+        author_cell,
+        date_cell,
+        findings_cell,
+        subsystems_cell,
+    ])
 }
 
 /// Compute a centered rectangle within the given area.

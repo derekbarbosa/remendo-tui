@@ -107,12 +107,12 @@ fn init_returns_fetch_commands() {
 }
 
 #[test]
-fn refresh_returns_fetch_commands() {
+fn refresh_clears_cache_and_fetches() {
     let mut app = App::new(Config::default());
     let cmd = update(&mut app, Message::Refresh);
     assert!(
-        matches!(cmd, Cmd::Batch(ref cmds) if cmds.len() == 3),
-        "Refresh should return Batch with 3 commands (patchsets, lists, stats)"
+        matches!(cmd, Cmd::ClearCacheAndBatch(ref cmds) if cmds.len() == 3),
+        "Refresh should return ClearCacheAndBatch with 3 commands"
     );
 }
 
@@ -387,10 +387,10 @@ fn search_flow_end_to_end() {
     // Search query preserved across refresh
     let cmd = update(&mut app, Message::Refresh);
     match cmd {
-        Cmd::Batch(ref cmds) => {
+        Cmd::ClearCacheAndBatch(ref cmds) => {
             // The FetchPatchsets should carry the search query
             assert!(matches!(cmds[0], Cmd::FetchPatchsets(_)));
         }
-        _ => panic!("expected Batch"),
+        _ => panic!("expected ClearCacheAndBatch"),
     }
 }

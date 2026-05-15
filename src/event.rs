@@ -103,7 +103,11 @@ fn handle_search_key(key_event: KeyEvent) -> Option<Message> {
 
 /// Map a semantic key action to a `Message`.
 ///
-/// Actions that don't yet have corresponding UI features return `None`.
+/// Returns `Some` for all currently implemented actions. The `Option`
+/// return type is retained for the `.and_then(action_to_message)` call
+/// pattern and for forward compatibility when new `KeyAction` variants
+/// are added before their `Message` counterparts.
+#[allow(clippy::unnecessary_wraps)]
 fn action_to_message(action: KeyAction) -> Option<Message> {
     match action {
         KeyAction::Quit => Some(Message::Quit),
@@ -122,10 +126,9 @@ fn action_to_message(action: KeyAction) -> Option<Message> {
         KeyAction::PrevPage => Some(Message::PrevPage),
         KeyAction::Search => Some(Message::SearchStart),
         KeyAction::ViewRawLog => Some(Message::ViewRawLog),
-        // Other actions will produce messages when their UI slugs land
-        KeyAction::BookmarkToggle
-        | KeyAction::NextComment
-        | KeyAction::PrevComment => None,
+        KeyAction::BookmarkToggle => Some(Message::BookmarkToggle),
+        KeyAction::NextComment => Some(Message::NextComment),
+        KeyAction::PrevComment => Some(Message::PrevComment),
     }
 }
 
