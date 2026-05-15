@@ -147,16 +147,19 @@ impl HttpClient {
     }
 
     /// Build query parameters for list endpoints.
+    ///
+    /// Wire names follow the Sashiko API docs: `limit` (not `per_page`),
+    /// `list` (not `mailing_list`).
     fn list_query(params: &ListParams) -> Vec<(&'static str, String)> {
         let mut query = vec![
             ("page", params.page.to_string()),
-            ("per_page", params.per_page.to_string()),
+            ("limit", params.per_page.to_string()),
         ];
         if let Some(ref q) = params.search {
             query.push(("q", q.clone()));
         }
         if let Some(ref ml) = params.mailing_list {
-            query.push(("mailing_list", ml.clone()));
+            query.push(("list", ml.clone()));
         }
         query
     }
@@ -308,9 +311,9 @@ mod tests {
         let query = HttpClient::list_query(&params);
         assert_eq!(query.len(), 4);
         assert_eq!(query[0], ("page", "2".to_string()));
-        assert_eq!(query[1], ("per_page", "25".to_string()));
+        assert_eq!(query[1], ("limit", "25".to_string()));
         assert_eq!(query[2], ("q", "null deref".to_string()));
-        assert_eq!(query[3], ("mailing_list", "LKML".to_string()));
+        assert_eq!(query[3], ("list", "LKML".to_string()));
     }
 
     #[test]
