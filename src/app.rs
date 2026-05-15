@@ -24,6 +24,14 @@ pub struct App {
     pub error_state: Option<String>,
     /// Available mailing lists from the active remote.
     pub mailing_lists: Vec<MailingList>,
+    /// Index of the currently selected patchset in the list.
+    pub selected_index: usize,
+    /// Cached terminal height for half-page scroll calculation.
+    pub terminal_height: u16,
+    /// Index of the currently active remote in `config.remotes`.
+    pub active_remote_index: usize,
+    /// Which panel currently has keyboard focus.
+    pub focus: FocusPanel,
 }
 
 impl App {
@@ -48,6 +56,10 @@ impl App {
             active_remote,
             error_state: None,
             mailing_lists: vec![],
+            selected_index: 0,
+            terminal_height: 0,
+            active_remote_index: 0,
+            focus: FocusPanel::default(),
         }
     }
 
@@ -56,6 +68,16 @@ impl App {
     pub fn is_running(&self) -> bool {
         self.running_state == RunningState::Running
     }
+}
+
+/// Which panel currently has keyboard focus.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum FocusPanel {
+    /// The patchset list table (main pane).
+    #[default]
+    PatchsetList,
+    /// The remote/mailbox sidebar.
+    Sidebar,
 }
 
 /// Controls the main event loop lifecycle.
