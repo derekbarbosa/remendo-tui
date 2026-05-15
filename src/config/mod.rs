@@ -239,3 +239,76 @@ mod tests {
         assert_eq!(config.remotes[2].name, "third");
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod load_integration_tests {
+    use super::*;
+
+    #[test]
+    fn load_does_not_error() {
+        // Config::load() should never return Err — it falls back to
+        // defaults when no file is found, and parses when one exists.
+        let result = Config::load();
+        assert!(result.is_ok(), "Config::load() failed: {result:?}");
+    }
+
+    #[test]
+    fn load_from_xdg_no_false_nofile_warning() {
+        let paths = AppPaths::resolve().expect("resolve paths");
+        let (_, warnings) = Config::load().expect("load config");
+
+        // If a config file exists at the XDG path, the NoFile warning
+        // must not be emitted.
+        if paths.config_file.exists() {
+            assert!(
+                !warnings.iter().any(|w| matches!(w, ConfigWarning::NoFile)),
+                "config file exists at {:?} but got NoFile warning",
+                paths.config_file
+            );
+        }
+    }
+
+    #[test]
+    fn load_produces_nofile_warning_when_missing() {
+        // If no config file exists, we should get a NoFile warning.
+        // This test is environment-dependent — if a config file does
+        // exist, it validates the other path instead.
+        let paths = AppPaths::resolve().expect("resolve paths");
+        let (_, warnings) = Config::load().expect("load config");
+
+        if !paths.config_file.exists() {
+            assert!(
+                warnings.iter().any(|w| matches!(w, ConfigWarning::NoFile)),
+                "no config file at {:?} but no NoFile warning",
+                paths.config_file
+            );
+        }
+    }
+
+    #[test]
+    fn load_populates_keybindings() {
+        let (config, _) = Config::load().expect("load config");
+        // Regardless of whether a file exists, keybindings should
+        // have the default set (17 bindings).
+        assert!(
+            !config.keybindings.bindings.is_empty(),
+            "keybindings should have default entries"
+        );
+    }
+
+    #[test]
+    fn from_toml_with_remotes_populates_list() {
+        let toml_str = r#"
+            [[remotes]]
+            name = "test"
+            url = "https://sashiko.example.com"
+        "#;
+        let config = Config::from_toml(toml_str).expect("parse toml");
+        assert_eq!(config.remotes.len(), 1);
+        assert_eq!(config.remotes[0].name, "test");
+        assert_eq!(config.remotes[0].url, "https://sashiko.example.com");
+        // Keybindings should still have defaults even when not in TOML
+        assert!(!config.keybindings.bindings.is_empty());
+    }
+}

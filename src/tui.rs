@@ -21,9 +21,16 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 /// Terminal UI wrapper managing lifecycle and event delivery.
+///
+/// The lifecycle is split into two phases:
+/// 1. `Tui::new()` — creates channels and config; no terminal side effects
+/// 2. `Tui::enter()` — initializes the terminal, enters raw mode, spawns event task
+///
+/// This split ensures config loading and stderr output happen before
+/// the terminal is taken over.
 pub struct Tui {
-    /// The ratatui terminal instance.
-    pub terminal: DefaultTerminal,
+    /// The ratatui terminal instance (initialized in `enter()`).
+    terminal: Option<DefaultTerminal>,
     /// Receiver for events from the event handler task.
     event_rx: mpsc::UnboundedReceiver<Event>,
     /// Sender for events (cloned into the event task).
@@ -39,39 +46,35 @@ pub struct Tui {
 }
 
 impl Tui {
-    /// Create a new TUI instance without entering raw mode.
+    /// Create a new TUI instance **without** initializing the terminal.
     ///
-    /// Call [`Tui::enter`] to activate the terminal and start
-    /// the event handler task.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the terminal cannot be initialized.
-    pub fn new(tick_rate: f64, frame_rate: f64) -> Result<Self> {
-        let terminal = ratatui::init();
+    /// No side effects — the terminal remains in normal mode.
+    /// Call [`Tui::enter`] to activate raw mode and start the event
+    /// handler task.
+    #[must_use]
+    pub fn new(tick_rate: f64, frame_rate: f64) -> Self {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
-        Ok(Self {
-            terminal,
+        Self {
+            terminal: None,
             event_rx,
             event_tx,
             task: None,
             cancellation_token: CancellationToken::new(),
             tick_rate,
             frame_rate,
-        })
+        }
     }
 
-    /// Enter raw mode and start the async event handler task.
+    /// Initialize the terminal and enter raw mode.
     ///
-    /// Enables raw mode, alternate screen, mouse capture,
-    /// focus change events, and bracketed paste. Installs a
-    /// panic hook that restores the terminal before displaying
-    /// the error report. Spawns a tokio task that polls crossterm
-    /// events and tick/render intervals.
+    /// This enables raw mode, alternate screen, mouse capture,
+    /// focus change events, and bracketed paste. It also installs
+    /// a panic hook that restores the terminal before displaying
+    /// the error report, and spawns the async event handler task.
     ///
     /// # Errors
     ///
-    /// Returns an error if terminal setup fails.
+    /// Returns an error if terminal setup fails (instead of panicking).
     pub fn enter(&mut self) -> Result<()> {
         terminal::enable_raw_mode()?;
         crossterm::execute!(
@@ -81,6 +84,11 @@ impl Tui {
             EnableFocusChange,
             EnableBracketedPaste,
         )?;
+
+        // Initialize the terminal after entering raw mode
+        let backend = ratatui::prelude::CrosstermBackend::new(stdout());
+        let terminal = ratatui::Terminal::new(backend)?;
+        self.terminal = Some(terminal);
 
         // Install panic hook that restores the terminal
         let original_hook = panic::take_hook();
@@ -149,8 +157,8 @@ impl Tui {
     /// Returns an error if terminal restoration fails.
     pub fn exit(&mut self) -> Result<()> {
         self.cancellation_token.cancel();
-        // The task will stop on its own when the token is cancelled
         self.task = None;
+        self.terminal = None;
         Self::reset()?;
         Ok(())
     }
@@ -159,9 +167,12 @@ impl Tui {
     ///
     /// # Errors
     ///
-    /// Returns an error if drawing fails.
+    /// Returns an error if the terminal is not initialized or drawing fails.
     pub fn draw(&mut self, f: impl FnOnce(&mut ratatui::Frame)) -> Result<()> {
-        self.terminal.draw(f)?;
+        let terminal = self.terminal.as_mut().ok_or_else(|| {
+            color_eyre::eyre::eyre!("terminal not initialized — call enter() first")
+        })?;
+        terminal.draw(f)?;
         Ok(())
     }
 

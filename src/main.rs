@@ -9,6 +9,7 @@ use remendo_tui::{event, tui, ui, update};
 async fn main() -> Result<()> {
     color_eyre::install()?;
 
+    // Load config BEFORE terminal init so warnings print to stderr visibly.
     let (config, warnings) = Config::load().unwrap_or_else(|e| {
         eprintln!("config error: {e}, using defaults");
         (Config::default(), vec![])
@@ -18,7 +19,21 @@ async fn main() -> Result<()> {
         eprintln!("config warning: {warning}");
     }
 
-    let mut tui = tui::Tui::new(4.0, 30.0)?;
+    if config.remotes.is_empty() {
+        eprintln!(
+            "remendo: no remotes configured. \
+             See config.example.toml or docs/CONFIGURATION.md"
+        );
+    } else {
+        eprintln!(
+            "remendo: loaded {} remote(s) from config",
+            config.remotes.len()
+        );
+    }
+
+    // Terminal init happens here — after config is loaded and
+    // all stderr output is done. Tui::new() has no side effects.
+    let mut tui = tui::Tui::new(4.0, 30.0);
     tui.enter()?;
 
     let mut app = remendo_tui::app::App::new(config);
