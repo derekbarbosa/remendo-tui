@@ -5,11 +5,13 @@
 //! a mutable `App` reference and a `Message`, modifies state,
 //! and returns a `Cmd` describing any async side-effects to perform.
 
-use crate::app::{App, FocusPanel, InputMode, RunningState, SidebarSection, ViewMode};
+use crate::app::{App, FocusPanel, InputMode, ListContent, RunningState, SidebarSection, ViewMode};
 use crate::client::ApiError;
 use crate::client::types::ListParams;
 use crate::cmd::Cmd;
-use crate::models::{MailingList, PatchId, Paginated, Patchset, PatchsetDetail, ServerStats};
+use crate::models::{
+    EmailMessage, MailingList, PatchId, Paginated, Patchset, PatchsetDetail, ServerStats,
+};
 
 /// Every action the application can take.
 ///
@@ -81,6 +83,12 @@ pub enum Message {
     PrevComment,
     /// Open the baseline application log in the configured editor.
     ViewBaselineLog,
+    /// Toggle between patchset and message list views.
+    ToggleListContent,
+    /// Message list loaded from API.
+    MessagesLoaded(Result<Paginated<EmailMessage>, ApiError>),
+    /// Message detail loaded from API.
+    MessageDetailLoaded(Box<Result<EmailMessage, ApiError>>),
 }
 
 /// Apply a message to the application state and return any
@@ -117,11 +125,13 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
             Cmd::FetchPatchsets(app.list_params.clone()),
             Cmd::FetchStats,
         ]),
-        Message::Refresh => Cmd::ClearCacheAndBatch(vec![
-            Cmd::FetchPatchsets(app.list_params.clone()),
-            Cmd::FetchLists,
-            Cmd::FetchStats,
-        ]),
+        Message::Refresh => {
+            let content_fetch = match app.list_content {
+                ListContent::Patchsets => Cmd::FetchPatchsets(app.list_params.clone()),
+                ListContent::Messages => Cmd::FetchMessages(app.list_params.clone()),
+            };
+            Cmd::ClearCacheAndBatch(vec![content_fetch, Cmd::FetchLists, Cmd::FetchStats])
+        }
         Message::Tick | Message::Render => Cmd::None,
         Message::Resize(_w, h) => {
             app.terminal_height = h;
@@ -166,6 +176,7 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
             if app.view_mode == ViewMode::Detail || app.view_mode == ViewMode::Loading {
                 app.view_mode = ViewMode::List;
                 app.selected_detail = None;
+                app.selected_message = None;
                 app.loading_context = None;
                 app.detail_scroll_offset = 0;
                 app.comment_positions.clear();
@@ -193,6 +204,9 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
         Message::NextComment => handle_comment_nav(app, true),
         Message::PrevComment => handle_comment_nav(app, false),
         Message::ViewBaselineLog => handle_view_baseline_log(app),
+        Message::ToggleListContent => handle_toggle_list_content(app),
+        Message::MessagesLoaded(result) => handle_messages_loaded(app, result),
+        Message::MessageDetailLoaded(result) => handle_message_detail_loaded(app, *result),
     }
 }
 
@@ -226,12 +240,15 @@ fn log_message(msg: &Message, app: &App) {
         Message::NextComment => tracing::debug!("next comment"),
         Message::PrevComment => tracing::debug!("prev comment"),
         Message::ViewBaselineLog => tracing::debug!("view baseline log"),
+        Message::ToggleListContent => tracing::debug!("toggle list content"),
         // API results logged in their handlers; Quit logged in update()
         Message::PatchsetsLoaded(_)
         | Message::PatchsetDetailLoaded(_)
         | Message::StatsLoaded(_)
         | Message::ListsLoaded(_)
         | Message::BookmarksPersisted(_)
+        | Message::MessagesLoaded(_)
+        | Message::MessageDetailLoaded(_)
         | Message::Quit => {}
     }
 }
@@ -277,6 +294,67 @@ fn handle_view_raw_log(app: &App) -> Cmd {
     }
 }
 
+/// Handle `Message::ToggleListContent` — switch between patchsets and messages.
+fn handle_toggle_list_content(app: &mut App) -> Cmd {
+    app.selected_index = 0;
+    app.list_params.page = 1;
+    // Preserve search and mailing_list filters (both APIs accept the same params)
+    match app.list_content {
+        ListContent::Patchsets => {
+            app.list_content = ListContent::Messages;
+            Cmd::FetchMessages(app.list_params.clone())
+        }
+        ListContent::Messages => {
+            app.list_content = ListContent::Patchsets;
+            Cmd::FetchPatchsets(app.list_params.clone())
+        }
+    }
+}
+
+/// Handle `Message::MessagesLoaded` — store message list.
+fn handle_messages_loaded(
+    app: &mut App,
+    result: Result<Paginated<EmailMessage>, ApiError>,
+) -> Cmd {
+    match result {
+        Ok(paginated) => {
+            tracing::info!(
+                count = paginated.items.len(),
+                total = paginated.total,
+                "messages loaded"
+            );
+            app.messages = paginated;
+            app.error_state = None;
+        }
+        Err(ref e) => {
+            tracing::error!(error = %e, "messages load failed");
+            app.error_state = Some(e.to_string());
+        }
+    }
+    Cmd::None
+}
+
+/// Handle `Message::MessageDetailLoaded` — store and show message detail.
+fn handle_message_detail_loaded(app: &mut App, result: Result<EmailMessage, ApiError>) -> Cmd {
+    match result {
+        Ok(msg) => {
+            tracing::info!(id = msg.id, "message detail loaded");
+            app.selected_message = Some(msg);
+            app.view_mode = ViewMode::Detail;
+            app.loading_context = None;
+            app.detail_scroll_offset = 0;
+            app.error_state = None;
+        }
+        Err(ref e) => {
+            tracing::error!(error = %e, "message detail load failed");
+            app.error_state = Some(e.to_string());
+            app.view_mode = ViewMode::List;
+            app.loading_context = None;
+        }
+    }
+    Cmd::None
+}
+
 /// Handle `Message::ViewBaselineLog` — open baseline logs in editor.
 fn handle_view_baseline_log(app: &App) -> Cmd {
     let content = app
@@ -298,13 +376,20 @@ fn handle_view_baseline_log(app: &App) -> Cmd {
 
 /// Handle page navigation (`NextPage` / `PrevPage`).
 fn handle_page_nav(app: &mut App, msg: &Message) -> Cmd {
+    let paginated_total = match app.list_content {
+        ListContent::Patchsets => app.patchsets.total_pages(),
+        ListContent::Messages => app.messages.total_pages(),
+    };
+    let fetch = |app: &App| match app.list_content {
+        ListContent::Patchsets => Cmd::FetchPatchsets(app.list_params.clone()),
+        ListContent::Messages => Cmd::FetchMessages(app.list_params.clone()),
+    };
     match *msg {
         Message::NextPage => {
-            let total_pages = app.patchsets.total_pages();
-            if total_pages > 0 && app.list_params.page < total_pages {
+            if paginated_total > 0 && app.list_params.page < paginated_total {
                 app.list_params.page += 1;
                 app.selected_index = 0;
-                Cmd::FetchPatchsets(app.list_params.clone())
+                fetch(app)
             } else {
                 Cmd::None
             }
@@ -313,7 +398,7 @@ fn handle_page_nav(app: &mut App, msg: &Message) -> Cmd {
             if app.list_params.page > 1 {
                 app.list_params.page -= 1;
                 app.selected_index = 0;
-                Cmd::FetchPatchsets(app.list_params.clone())
+                fetch(app)
             } else {
                 Cmd::None
             }
@@ -489,7 +574,10 @@ fn handle_search(app: &mut App, msg: &Message) -> Cmd {
             app.selected_index = 0;
             app.search_buffer.clear();
             app.search_cursor = 0;
-            Cmd::FetchPatchsets(app.list_params.clone())
+            match app.list_content {
+                ListContent::Patchsets => Cmd::FetchPatchsets(app.list_params.clone()),
+                ListContent::Messages => Cmd::FetchMessages(app.list_params.clone()),
+            }
         }
         Message::SearchCancel => {
             app.input_mode = InputMode::Normal;
@@ -528,22 +616,36 @@ fn handle_select(app: &mut App) -> Cmd {
         return Cmd::None;
     }
     match app.focus {
-        FocusPanel::PatchsetList => {
-            let Some(patchset) = app.patchsets.items.get(app.selected_index) else {
-                return Cmd::None;
-            };
-            // Transition to loading state with visual confirmation
-            app.loading_context = Some(crate::app::LoadingContext {
-                patchset_id: patchset.id,
-                subject: patchset.subject().to_string(),
-                status: patchset.status.to_string(),
-            });
-            app.view_mode = ViewMode::Loading;
-            app.detail_scroll_offset = 0;
-            app.comment_positions.clear();
-            app.current_comment_index = None;
-            Cmd::FetchPatchsetDetail(PatchId::Numeric(patchset.id))
-        }
+        FocusPanel::PatchsetList => match app.list_content {
+            ListContent::Patchsets => {
+                let Some(patchset) = app.patchsets.items.get(app.selected_index) else {
+                    return Cmd::None;
+                };
+                app.loading_context = Some(crate::app::LoadingContext {
+                    patchset_id: patchset.id,
+                    subject: patchset.subject().to_string(),
+                    status: patchset.status.to_string(),
+                });
+                app.view_mode = ViewMode::Loading;
+                app.detail_scroll_offset = 0;
+                app.comment_positions.clear();
+                app.current_comment_index = None;
+                Cmd::FetchPatchsetDetail(PatchId::Numeric(patchset.id))
+            }
+            ListContent::Messages => {
+                let Some(msg) = app.messages.items.get(app.selected_index) else {
+                    return Cmd::None;
+                };
+                app.loading_context = Some(crate::app::LoadingContext {
+                    patchset_id: msg.id,
+                    subject: msg.subject.as_deref().unwrap_or("(no subject)").to_string(),
+                    status: String::new(),
+                });
+                app.view_mode = ViewMode::Loading;
+                app.detail_scroll_offset = 0;
+                Cmd::FetchMessageDetail(PatchId::Numeric(msg.id))
+            }
+        },
         FocusPanel::Sidebar => handle_sidebar_select(app),
     }
 }
@@ -753,6 +855,10 @@ fn switch_remote(app: &mut App, new_index: usize) -> Cmd {
     app.sidebar_list_index = 0;
     app.comment_positions.clear();
     app.current_comment_index = None;
+    app.list_content = ListContent::Patchsets;
+    app.messages.items.clear();
+    app.messages.total = 0;
+    app.selected_message = None;
     Cmd::Batch(vec![
         Cmd::FetchPatchsets(app.list_params.clone()),
         Cmd::FetchLists,

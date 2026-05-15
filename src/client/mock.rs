@@ -23,6 +23,8 @@ pub struct MockClient {
     stats_response: Mutex<MockResult<ServerStats>>,
     lists_response: Mutex<MockResult<Vec<MailingList>>>,
     patch_detail_response: Mutex<MockResult<PatchsetDetail>>,
+    messages_response: Mutex<MockResult<Paginated<EmailMessage>>>,
+    message_detail_response: Mutex<MockResult<EmailMessage>>,
 }
 
 impl MockClient {
@@ -34,6 +36,8 @@ impl MockClient {
             stats_response: Mutex::new(None),
             lists_response: Mutex::new(None),
             patch_detail_response: Mutex::new(None),
+            messages_response: Mutex::new(None),
+            message_detail_response: Mutex::new(None),
         }
     }
 
@@ -61,6 +65,20 @@ impl MockClient {
     /// Set the canned response for `patch_detail()`.
     pub fn set_patch_detail(&self, result: Result<PatchsetDetail, String>) {
         if let Ok(mut guard) = self.patch_detail_response.lock() {
+            *guard = Some(result);
+        }
+    }
+
+    /// Set the canned response for `messages()`.
+    pub fn set_messages(&self, result: Result<Paginated<EmailMessage>, String>) {
+        if let Ok(mut guard) = self.messages_response.lock() {
+            *guard = Some(result);
+        }
+    }
+
+    /// Set the canned response for `message_detail()`.
+    pub fn set_message_detail(&self, result: Result<EmailMessage, String>) {
+        if let Ok(mut guard) = self.message_detail_response.lock() {
             *guard = Some(result);
         }
     }
@@ -101,9 +119,7 @@ impl SashikoApi for MockClient {
     }
 
     async fn messages(&self, _params: &ListParams) -> Result<Paginated<EmailMessage>, ApiError> {
-        Err(ApiError::Configuration(
-            "mock: messages not implemented".to_string(),
-        ))
+        Self::take_result(&self.messages_response, "messages")
     }
 
     async fn patch_detail(&self, _id: &PatchId) -> Result<PatchsetDetail, ApiError> {
@@ -117,9 +133,7 @@ impl SashikoApi for MockClient {
     }
 
     async fn message_detail(&self, _id: &PatchId) -> Result<EmailMessage, ApiError> {
-        Err(ApiError::Configuration(
-            "mock: message_detail not implemented".to_string(),
-        ))
+        Self::take_result(&self.message_detail_response, "message_detail")
     }
 
     async fn review(&self, _params: &ReviewQuery) -> Result<serde_json::Value, ApiError> {
