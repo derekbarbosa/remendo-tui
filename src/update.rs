@@ -161,9 +161,10 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
                 app.show_help = false;
                 return Cmd::None;
             }
-            if app.view_mode == ViewMode::Detail {
+            if app.view_mode == ViewMode::Detail || app.view_mode == ViewMode::Loading {
                 app.view_mode = ViewMode::List;
                 app.selected_detail = None;
+                app.loading_context = None;
                 app.detail_scroll_offset = 0;
                 app.comment_positions.clear();
                 app.current_comment_index = None;
@@ -496,11 +497,21 @@ fn handle_patchsets_loaded(app: &mut App, result: Result<Paginated<Patchset>, Ap
 
 /// Handle `Message::Select` — dispatch based on focus panel.
 fn handle_select(app: &mut App) -> Cmd {
+    if app.view_mode == ViewMode::Loading {
+        return Cmd::None;
+    }
     match app.focus {
         FocusPanel::PatchsetList => {
             let Some(patchset) = app.patchsets.items.get(app.selected_index) else {
                 return Cmd::None;
             };
+            // Transition to loading state with visual confirmation
+            app.loading_context = Some(crate::app::LoadingContext {
+                patchset_id: patchset.id,
+                subject: patchset.subject().to_string(),
+                status: patchset.status.to_string(),
+            });
+            app.view_mode = ViewMode::Loading;
             app.detail_scroll_offset = 0;
             app.comment_positions.clear();
             app.current_comment_index = None;
@@ -524,11 +535,15 @@ fn handle_detail_loaded(app: &mut App, result: Result<PatchsetDetail, ApiError>)
             app.current_comment_index = None;
             app.selected_detail = Some(detail);
             app.view_mode = ViewMode::Detail;
+            app.loading_context = None;
             app.error_state = None;
         }
         Err(ref e) => {
             tracing::error!(error = %e, "patchset detail load failed");
             app.error_state = Some(e.to_string());
+            // Return to list view on error
+            app.view_mode = ViewMode::List;
+            app.loading_context = None;
         }
     }
     Cmd::None
@@ -568,6 +583,10 @@ fn handle_lists_loaded(app: &mut App, result: Result<Vec<MailingList>, ApiError>
 
 /// Handle scroll/selection messages, routed by focus panel.
 fn handle_scroll(app: &mut App, msg: &Message) -> Cmd {
+    // Block all scroll during loading
+    if app.view_mode == ViewMode::Loading {
+        return Cmd::None;
+    }
     match app.focus {
         FocusPanel::PatchsetList => {}
         FocusPanel::Sidebar => return handle_sidebar_scroll(app, msg),
@@ -697,6 +716,7 @@ fn switch_remote(app: &mut App, new_index: usize) -> Cmd {
     app.stats = None;
     app.view_mode = ViewMode::List;
     app.selected_detail = None;
+    app.loading_context = None;
     app.detail_scroll_offset = 0;
     app.list_params = ListParams::default();
     app.input_mode = InputMode::Normal;

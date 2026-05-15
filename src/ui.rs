@@ -49,6 +49,11 @@ pub fn view(app: &App, frame: &mut Frame) {
     // --- Main pane ---
     match app.view_mode {
         ViewMode::List => render_main_pane(app, frame, chunks[1], palette),
+        ViewMode::Loading => {
+            // Render the list underneath, then overlay the loading dialog
+            render_main_pane(app, frame, chunks[1], palette);
+            render_loading_dialog(app, frame, palette);
+        }
         ViewMode::Detail => render_detail_view(app, frame, chunks[1], palette),
     }
 
@@ -413,6 +418,52 @@ fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
 }
 
 /// Render the help overlay showing all keybinding mappings.
+/// Render a loading dialog showing the selected patchset being fetched.
+fn render_loading_dialog(app: &App, frame: &mut Frame, palette: &ColorPalette) {
+    let Some(ref ctx) = app.loading_context else {
+        return;
+    };
+
+    let popup_width: u16 = 50;
+    let popup_height: u16 = 7;
+    let area = centered_rect(popup_width, popup_height, frame.area());
+
+    frame.render_widget(Clear, area);
+
+    let block = Block::default()
+        .title(" Loading Patchset ".bold())
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(palette.accent.color()));
+
+    let text = vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  ID: ", Style::default().fg(palette.muted.color())),
+            Span::styled(
+                ctx.patchset_id.to_string(),
+                Style::default().fg(palette.accent.color()),
+            ),
+            Span::raw("  "),
+            Span::styled(
+                format!("[{}]", ctx.status),
+                Style::default().fg(palette.foreground.color()),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("  ", Style::default()),
+            Span::raw(&ctx.subject),
+        ]),
+        Line::from(""),
+        Line::styled(
+            "  Loading detail...",
+            Style::default().fg(palette.muted.color()),
+        ),
+    ];
+
+    let paragraph = Paragraph::new(text).block(block);
+    frame.render_widget(paragraph, area);
+}
+
 fn render_help_overlay(app: &App, frame: &mut Frame, palette: &ColorPalette) {
     // Collect and sort bindings by action label
     let mut entries: Vec<_> = app
