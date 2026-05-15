@@ -5,6 +5,17 @@ sensible compiled-in defaults -- you only need to override what you want
 to change. If the config file is missing or contains errors, `remendo`
 starts with defaults and displays a warning.
 
+> **Quick start:** Copy the annotated example config from the repository
+> root and edit it:
+>
+> ```sh
+> mkdir -p ~/.config/remendo
+> cp config.example.toml ~/.config/remendo/config.toml
+> ```
+>
+> See [`config.example.toml`](../config.example.toml) for a fully
+> commented starting point.
+
 ## Config File Location
 
 `remendo` follows the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/):

@@ -48,14 +48,24 @@ cargo install remendo-tui
 ### 1. Create a configuration file
 
 `remendo` looks for its config at `~/.config/remendo/config.toml` (or
-`$XDG_CONFIG_HOME/remendo/config.toml`). Create a minimal config with one
-remote:
+`$XDG_CONFIG_HOME/remendo/config.toml`). The easiest way to get started is
+to copy the included example:
+
+```sh
+mkdir -p ~/.config/remendo
+cp config.example.toml ~/.config/remendo/config.toml
+```
+
+Then edit `~/.config/remendo/config.toml` and set your Sashiko instance URL:
 
 ```toml
 [[remotes]]
 name = "upstream"
 url = "https://sashiko.dev"
 ```
+
+The example file is fully commented and documents every option. See
+[`config.example.toml`](config.example.toml) for the complete reference.
 
 If no config file is found, `remendo` starts with compiled-in defaults and an
 empty remote list.
