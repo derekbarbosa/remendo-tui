@@ -30,7 +30,7 @@ use serde::Deserialize;
 /// ```
 /// use remendo_tui::config::Config;
 ///
-/// // Default config has no remotes, default cache, empty stubs
+/// // Default config has no remotes, default cache, default keybindings
 /// let config = Config::default();
 /// assert!(config.remotes.is_empty());
 /// assert_eq!(config.cache.ttl_seconds, 300);
@@ -45,9 +45,9 @@ pub struct Config {
     pub cache: CacheConfig,
     /// Configured remote Sashiko instances.
     pub remotes: Vec<RemoteConfig>,
-    /// Keybinding mappings (stub until PLAN-02).
+    /// Keybinding mappings.
     pub keybindings: KeybindingsConfig,
-    /// Color theme (stub until PLAN-02).
+    /// Color theme.
     pub theme: ThemeConfig,
 }
 
