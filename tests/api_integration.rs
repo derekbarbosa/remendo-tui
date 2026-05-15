@@ -7,7 +7,7 @@ use remendo_tui::config::RemoteConfig;
 use remendo_tui::models::{PatchId, Paginated, Patchset, PatchsetDetail, ServerStats};
 use serde_json::json;
 use wiremock::matchers::{method, path};
-use wiremock::{Mock, MockServer, ResponseTemplate};
+use wiremock::{Mock, MockServer, Respond, ResponseTemplate};
 
 /// Create a `RemoteConfig` pointing at the given mock server URI.
 fn test_remote(uri: &str) -> RemoteConfig {
@@ -165,4 +165,44 @@ async fn fetches_patch_detail_successfully() {
         detail.subject.as_deref(),
         Some("[PATCH v2 0/4] iio: light: fix null pointer dereference")
     );
+}
+
+/// A responder that returns 500 on the first request, then 200 with the given body.
+struct FailThenSucceed {
+    body: serde_json::Value,
+    call_count: std::sync::atomic::AtomicU32,
+}
+
+impl Respond for FailThenSucceed {
+    fn respond(&self, _request: &wiremock::Request) -> ResponseTemplate {
+        let count = self
+            .call_count
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if count == 0 {
+            ResponseTemplate::new(500).set_body_string("internal error")
+        } else {
+            ResponseTemplate::new(200).set_body_json(&self.body)
+        }
+    }
+}
+
+#[tokio::test]
+async fn retries_on_500_then_succeeds() {
+    let server = MockServer::start().await;
+    let responder = FailThenSucceed {
+        body: stats_json(),
+        call_count: std::sync::atomic::AtomicU32::new(0),
+    };
+
+    Mock::given(method("GET"))
+        .and(path("/api/stats"))
+        .respond_with(responder)
+        .expect(2) // initial 500 + retry 200
+        .mount(&server)
+        .await;
+
+    let client = HttpClient::new(&test_remote(&server.uri())).expect("build client");
+    let result: Result<ServerStats, ApiError> = client.stats().await;
+    assert!(result.is_ok(), "expected Ok after retry, got: {result:?}");
+    assert_eq!(result.expect("stats").status, "ok");
 }
