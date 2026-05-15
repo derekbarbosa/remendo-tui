@@ -950,4 +950,185 @@ mod tests {
         update(&mut app, Message::HalfPageUp);
         assert_eq!(app.selected_index, 0);
     }
+
+    // --- Detail scroll tests ---
+
+    #[test]
+    fn detail_scroll_adjusts_offset() {
+        let mut app = app_with_patchsets(5);
+        app.view_mode = ViewMode::Detail;
+        app.terminal_height = 24;
+        assert_eq!(app.detail_scroll_offset, 0);
+
+        update(&mut app, Message::ScrollDown);
+        assert_eq!(app.detail_scroll_offset, 1);
+
+        update(&mut app, Message::ScrollDown);
+        assert_eq!(app.detail_scroll_offset, 2);
+
+        update(&mut app, Message::ScrollUp);
+        assert_eq!(app.detail_scroll_offset, 1);
+    }
+
+    #[test]
+    fn detail_half_page_scroll() {
+        let mut app = app_with_patchsets(5);
+        app.view_mode = ViewMode::Detail;
+        app.terminal_height = 24;
+
+        update(&mut app, Message::HalfPageDown);
+        assert_eq!(app.detail_scroll_offset, 12);
+
+        update(&mut app, Message::HalfPageUp);
+        assert_eq!(app.detail_scroll_offset, 0);
+    }
+
+    #[test]
+    fn detail_scroll_up_clamps_at_zero() {
+        let mut app = app_with_patchsets(5);
+        app.view_mode = ViewMode::Detail;
+
+        update(&mut app, Message::ScrollUp);
+        assert_eq!(app.detail_scroll_offset, 0);
+    }
+
+    // --- Sidebar mailing list selection tests ---
+
+    #[test]
+    fn sidebar_select_mailing_list_filters() {
+        let mut app = app_with_remotes(&["upstream"]);
+        app.mailing_lists = vec![
+            crate::models::MailingList {
+                name: "LKML".to_string(),
+                group: Some("org.kernel.vger.linux-kernel".to_string()),
+            },
+        ];
+        app.focus = FocusPanel::Sidebar;
+        app.sidebar_section = SidebarSection::MailingLists;
+        app.sidebar_list_index = 1; // first mailing list (0 = "All")
+
+        let cmd = update(&mut app, Message::Select);
+        assert_eq!(
+            app.list_params.mailing_list,
+            Some("org.kernel.vger.linux-kernel".to_string())
+        );
+        assert_eq!(app.list_params.page, 1);
+        assert!(matches!(cmd, Cmd::FetchPatchsets(_)));
+    }
+
+    #[test]
+    fn sidebar_select_all_clears_filter() {
+        let mut app = app_with_remotes(&["upstream"]);
+        app.mailing_lists = vec![crate::models::MailingList::fixture()];
+        app.list_params.mailing_list = Some("old-filter".to_string());
+        app.focus = FocusPanel::Sidebar;
+        app.sidebar_section = SidebarSection::MailingLists;
+        app.sidebar_list_index = 0; // "All"
+
+        let cmd = update(&mut app, Message::Select);
+        assert!(app.list_params.mailing_list.is_none());
+        assert!(matches!(cmd, Cmd::FetchPatchsets(_)));
+    }
+
+    // --- Search flow tests ---
+
+    #[test]
+    fn search_start_enters_search_mode() {
+        let mut app = App::new(Config::default());
+        update(&mut app, Message::SearchStart);
+        assert_eq!(app.input_mode, InputMode::Search);
+    }
+
+    #[test]
+    fn search_input_appends_char() {
+        let mut app = App::new(Config::default());
+        update(&mut app, Message::SearchStart);
+        update(&mut app, Message::SearchInput('h'));
+        update(&mut app, Message::SearchInput('i'));
+        assert_eq!(app.search_buffer, "hi");
+        assert_eq!(app.search_cursor, 2);
+    }
+
+    #[test]
+    fn search_backspace_deletes_char() {
+        let mut app = App::new(Config::default());
+        update(&mut app, Message::SearchStart);
+        update(&mut app, Message::SearchInput('a'));
+        update(&mut app, Message::SearchInput('b'));
+        update(&mut app, Message::SearchInput('\x08')); // backspace
+        assert_eq!(app.search_buffer, "a");
+    }
+
+    #[test]
+    fn search_submit_sets_filter_and_fetches() {
+        let mut app = App::new(Config::default());
+        app.list_params.page = 5;
+        update(&mut app, Message::SearchStart);
+        update(&mut app, Message::SearchInput('f'));
+        update(&mut app, Message::SearchInput('i'));
+        update(&mut app, Message::SearchInput('x'));
+
+        let cmd = update(&mut app, Message::SearchSubmit);
+        assert_eq!(app.input_mode, InputMode::Normal);
+        assert_eq!(app.list_params.search, Some("fix".to_string()));
+        assert_eq!(app.list_params.page, 1); // reset
+        assert!(matches!(cmd, Cmd::FetchPatchsets(_)));
+    }
+
+    #[test]
+    fn search_cancel_discards_buffer() {
+        let mut app = App::new(Config::default());
+        app.list_params.search = Some("old".to_string());
+        update(&mut app, Message::SearchStart);
+        update(&mut app, Message::SearchInput('n'));
+        update(&mut app, Message::SearchInput('e'));
+        update(&mut app, Message::SearchInput('w'));
+
+        let cmd = update(&mut app, Message::SearchCancel);
+        assert_eq!(app.input_mode, InputMode::Normal);
+        assert_eq!(app.list_params.search, Some("old".to_string())); // preserved
+        assert!(app.search_buffer.is_empty());
+        assert!(matches!(cmd, Cmd::None));
+    }
+
+    #[test]
+    fn search_empty_submit_clears_filter() {
+        let mut app = App::new(Config::default());
+        app.list_params.search = Some("old query".to_string());
+        update(&mut app, Message::SearchStart);
+        // Buffer starts with existing query; clear it manually
+        app.search_buffer.clear();
+        app.search_cursor = 0;
+
+        let cmd = update(&mut app, Message::SearchSubmit);
+        assert!(app.list_params.search.is_none());
+        assert!(matches!(cmd, Cmd::FetchPatchsets(_)));
+    }
+
+    // --- ViewRawLog tests ---
+
+    #[test]
+    fn view_raw_log_without_detail_is_noop() {
+        let mut app = App::new(Config::default());
+        let cmd = update(&mut app, Message::ViewRawLog);
+        assert!(matches!(cmd, Cmd::None));
+    }
+
+    #[test]
+    fn view_raw_log_with_detail_returns_open_editor() {
+        let mut app = App::new(Config::default());
+        app.selected_detail = Some(PatchsetDetail::fixture());
+        let cmd = update(&mut app, Message::ViewRawLog);
+        assert!(matches!(cmd, Cmd::OpenEditor { .. }));
+    }
+
+    #[test]
+    fn view_raw_log_with_no_reviews_is_noop() {
+        let mut app = App::new(Config::default());
+        let mut detail = PatchsetDetail::fixture();
+        detail.reviews.clear();
+        app.selected_detail = Some(detail);
+        let cmd = update(&mut app, Message::ViewRawLog);
+        assert!(matches!(cmd, Cmd::None));
+    }
 }

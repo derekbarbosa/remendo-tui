@@ -1,6 +1,6 @@
 //! Integration tests for the application event→update→state cycle.
 
-#![allow(clippy::expect_used)]
+#![allow(clippy::expect_used, clippy::panic)]
 
 use remendo_tui::app::{App, FocusPanel, RunningState, ViewMode};
 use remendo_tui::client::ApiError;
@@ -349,4 +349,48 @@ fn detail_load_error_sets_error_state() {
     assert!(app.error_state.is_some());
     assert_eq!(app.view_mode, ViewMode::List); // stays on list
     assert!(app.selected_detail.is_none());
+}
+
+#[test]
+fn search_flow_end_to_end() {
+    use remendo_tui::app::InputMode;
+
+    let mut app = app_with_remotes(&["upstream"]);
+    app.list_params.page = 3; // non-default page
+
+    // Start search
+    update(&mut app, Message::SearchStart);
+    assert_eq!(app.input_mode, InputMode::Search);
+
+    // Type query
+    update(&mut app, Message::SearchInput('f'));
+    update(&mut app, Message::SearchInput('i'));
+    update(&mut app, Message::SearchInput('x'));
+
+    // Submit
+    let cmd = update(&mut app, Message::SearchSubmit);
+    assert_eq!(app.input_mode, InputMode::Normal);
+    assert_eq!(app.list_params.search, Some("fix".to_string()));
+    assert_eq!(app.list_params.page, 1); // reset on search
+    assert!(matches!(cmd, Cmd::FetchPatchsets(_)));
+
+    // Simulate results arriving
+    let results = Paginated {
+        items: vec![Patchset::fixture()],
+        total: 1,
+        page: 1,
+        per_page: 50,
+    };
+    update(&mut app, Message::PatchsetsLoaded(Ok(results)));
+    assert_eq!(app.patchsets.items.len(), 1);
+
+    // Search query preserved across refresh
+    let cmd = update(&mut app, Message::Refresh);
+    match cmd {
+        Cmd::Batch(ref cmds) => {
+            // The FetchPatchsets should carry the search query
+            assert!(matches!(cmds[0], Cmd::FetchPatchsets(_)));
+        }
+        _ => panic!("expected Batch"),
+    }
 }
