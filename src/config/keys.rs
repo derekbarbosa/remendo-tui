@@ -123,6 +123,15 @@ impl KeyCombo {
         }
 
         let code = parse_key_code(remaining)?;
+
+        // Uppercase letters implicitly carry SHIFT — crossterm delivers
+        // Shift+n as KeyCode::Char('N') with KeyModifiers::SHIFT.
+        if let KeyCode::Char(c) = code
+            && c.is_ascii_uppercase()
+        {
+            modifiers |= KeyModifiers::SHIFT;
+        }
+
         Some(Self { code, modifiers })
     }
 }
