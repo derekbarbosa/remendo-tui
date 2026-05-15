@@ -7,7 +7,7 @@ use crate::client::api::SashikoApi;
 use crate::client::error::ApiError;
 use crate::client::types::{ListParams, ReviewQuery};
 use crate::models::{
-    EmailMessage, MailingList, Paginated, Patchset, PatchsetDetail, PatchId, ServerStats,
+    EmailMessage, MailingList, Paginated, PatchId, Patchset, PatchsetDetail, ServerStats,
 };
 use std::sync::Mutex;
 
@@ -57,10 +57,7 @@ impl MockClient {
     }
 
     /// Extract a canned result, converting the String error to `ApiError`.
-    fn take_result<T: Clone>(
-        lock: &Mutex<MockResult<T>>,
-        endpoint: &str,
-    ) -> Result<T, ApiError> {
+    fn take_result<T: Clone>(lock: &Mutex<MockResult<T>>, endpoint: &str) -> Result<T, ApiError> {
         let guard = lock
             .lock()
             .map_err(|e| ApiError::Configuration(format!("mock lock poisoned: {e}")))?;

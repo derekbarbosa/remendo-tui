@@ -6,8 +6,8 @@
 
 use crate::app::App;
 use ratatui::Frame;
-use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::style::Stylize;
+use ratatui::widgets::{Block, Borders, Paragraph};
 
 /// Render the application state into the given frame.
 ///
@@ -24,15 +24,10 @@ pub fn view(app: &App, frame: &mut Frame) {
         } else {
             &app.active_remote
         };
-        format!(
-            " remendo | {} | {} patchsets ",
-            remote, app.patchsets.total
-        )
+        format!(" remendo | {} | {} patchsets ", remote, app.patchsets.total)
     };
 
-    let block = Block::default()
-        .title(status.bold())
-        .borders(Borders::ALL);
+    let block = Block::default().title(status.bold()).borders(Borders::ALL);
 
     let content = if app.patchsets.items.is_empty() {
         "No patchsets loaded. Configure a remote in config.toml.".to_string()
@@ -49,27 +44,27 @@ pub fn view(app: &App, frame: &mut Frame) {
 mod tests {
     use super::*;
     use crate::config::Config;
-    use ratatui::backend::TestBackend;
     use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
 
     #[test]
     fn view_renders_without_panic() {
         let app = App::new(Config::default());
-        let mut terminal =
-            Terminal::new(TestBackend::new(80, 24)).expect("create test terminal");
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("create test terminal");
         terminal
             .draw(|f| view(&app, f))
             .expect("draw should not fail");
+        insta::assert_snapshot!(terminal.backend());
     }
 
     #[test]
     fn view_renders_error_state() {
         let mut app = App::new(Config::default());
         app.error_state = Some("connection refused".to_string());
-        let mut terminal =
-            Terminal::new(TestBackend::new(80, 24)).expect("create test terminal");
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("create test terminal");
         terminal
             .draw(|f| view(&app, f))
             .expect("draw with error should not fail");
+        insta::assert_snapshot!(terminal.backend());
     }
 }

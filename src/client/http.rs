@@ -5,7 +5,7 @@ use crate::client::error::ApiError;
 use crate::client::types::{ListParams, RetryConfig, ReviewQuery};
 use crate::config::RemoteConfig;
 use crate::models::{
-    EmailMessage, MailingList, Paginated, Patchset, PatchsetDetail, PatchId, ServerStats,
+    EmailMessage, MailingList, Paginated, PatchId, Patchset, PatchsetDetail, ServerStats,
 };
 use serde::de::DeserializeOwned;
 use std::time::Duration;
@@ -117,11 +117,9 @@ impl HttpClient {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| {
-            ApiError::Network {
-                source: "exhausted retries with no error captured".into(),
-                remote: self.remote_name.clone(),
-            }
+        Err(last_error.unwrap_or_else(|| ApiError::Network {
+            source: "exhausted retries with no error captured".into(),
+            remote: self.remote_name.clone(),
         }))
     }
 
@@ -194,9 +192,7 @@ const fn is_retryable_status(status: u16) -> bool {
 fn make_deser_error(e: &reqwest::Error, endpoint: &str) -> ApiError {
     // Intentionally parse invalid JSON to produce a serde_json::Error
     // carrying the reqwest message as context.
-    match serde_json::from_str::<serde_json::Value>(
-        &format!("INVALID: reqwest json error: {e}"),
-    ) {
+    match serde_json::from_str::<serde_json::Value>(&format!("INVALID: reqwest json error: {e}")) {
         Err(serde_err) => ApiError::Deserialization {
             source: serde_err,
             endpoint: endpoint.to_string(),

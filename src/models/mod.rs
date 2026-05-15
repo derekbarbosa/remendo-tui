@@ -12,10 +12,11 @@ pub mod patch;
 pub mod patchset;
 pub mod review;
 
-#[cfg(test)]
+/// Test fixture constructors — available in tests and integration tests.
+#[cfg(any(test, feature = "test-support"))]
 pub mod fixtures;
 
-pub use common::{Baseline, MailingList, PatchId, Severity, ServerStats};
+pub use common::{Baseline, MailingList, PatchId, ServerStats, Severity};
 pub use message::{EmailMessage, ThreadMessage};
 pub use pagination::Paginated;
 pub use patch::{Patch, PatchStatus};

@@ -70,8 +70,8 @@ pub struct ThreadMessage {
 }
 
 #[cfg(test)]
-    #[allow(clippy::expect_used)]
-    mod tests {
+#[allow(clippy::expect_used)]
+mod tests {
     use super::*;
 
     #[test]

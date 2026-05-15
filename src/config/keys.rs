@@ -332,10 +332,7 @@ mod tests {
         assert_eq!(config.action_for(&refresh_combo), Some(KeyAction::Refresh));
 
         let tab_combo = KeyCombo::new(KeyCode::Tab, KeyModifiers::NONE);
-        assert_eq!(
-            config.action_for(&tab_combo),
-            Some(KeyAction::NextMailbox)
-        );
+        assert_eq!(config.action_for(&tab_combo), Some(KeyAction::NextMailbox));
     }
 
     #[test]
@@ -351,8 +348,7 @@ mod tests {
             quit = "C-q"
             refresh = "F5"
         "#;
-        let config: KeybindingsConfig =
-            toml::from_str(toml_str).expect("parse keybindings");
+        let config: KeybindingsConfig = toml::from_str(toml_str).expect("parse keybindings");
 
         let ctrl_q = KeyCombo::new(KeyCode::Char('q'), KeyModifiers::CONTROL);
         assert_eq!(config.action_for(&ctrl_q), Some(KeyAction::Quit));
