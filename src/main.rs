@@ -102,7 +102,15 @@ async fn main() -> Result<()> {
 
         if let Some(msg) = msg {
             let command = update::update(&mut app, msg);
-            cmd::execute(command, &clients, &app.active_remote, &msg_tx);
+            // Handle OpenEditor in the main loop where we can suspend/resume the TUI
+            if let cmd::Cmd::OpenEditor { content, editor } = command {
+                if let Err(e) = run_editor(&mut tui, &content, &editor) {
+                    tracing::error!(error = %e, "editor failed");
+                    app.error_state = Some(format!("editor error: {e}"));
+                }
+            } else {
+                cmd::execute(command, &clients, &app.active_remote, &msg_tx);
+            }
         }
 
         if app.running_state == RunningState::Done {
@@ -113,6 +121,37 @@ async fn main() -> Result<()> {
     tui.exit()?;
     tracing::info!("remendo exiting");
     Ok(())
+}
+
+/// Suspend the TUI, run an editor on the given content, then resume.
+fn run_editor(tui: &mut tui::Tui, content: &str, editor: &str) -> Result<()> {
+    use std::io::Write;
+
+    // Write content to a temp file
+    let mut tmp = tempfile::Builder::new()
+        .prefix("remendo-review-")
+        .suffix(".txt")
+        .tempfile()?;
+    tmp.write_all(content.as_bytes())?;
+    let path = tmp.path().to_path_buf();
+
+    // Suspend TUI — restore normal terminal for the editor
+    tui.suspend()?;
+
+    // Run editor synchronously
+    let status = std::process::Command::new(editor).arg(&path).status();
+
+    // Resume TUI — re-enter alternate screen and raw mode
+    tui.resume()?;
+
+    match status {
+        Ok(s) if s.success() => Ok(()),
+        Ok(s) => {
+            tracing::warn!(status = %s, "editor exited with non-zero status");
+            Ok(())
+        }
+        Err(e) => Err(color_eyre::eyre::eyre!("failed to launch '{editor}': {e}")),
+    }
 }
 
 /// Initialize file-based tracing subscriber.
