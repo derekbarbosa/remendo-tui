@@ -129,6 +129,7 @@ fn action_to_message(action: KeyAction) -> Option<Message> {
         KeyAction::BookmarkToggle => Some(Message::BookmarkToggle),
         KeyAction::NextComment => Some(Message::NextComment),
         KeyAction::PrevComment => Some(Message::PrevComment),
+        KeyAction::ViewBaselineLog => Some(Message::ViewBaselineLog),
     }
 }
 

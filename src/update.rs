@@ -79,6 +79,8 @@ pub enum Message {
     NextComment,
     /// Jump to the previous comment in the detail view.
     PrevComment,
+    /// Open the baseline application log in the configured editor.
+    ViewBaselineLog,
 }
 
 /// Apply a message to the application state and return any
@@ -190,6 +192,7 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
         }
         Message::NextComment => handle_comment_nav(app, true),
         Message::PrevComment => handle_comment_nav(app, false),
+        Message::ViewBaselineLog => handle_view_baseline_log(app),
     }
 }
 
@@ -222,6 +225,7 @@ fn log_message(msg: &Message, app: &App) {
         Message::BookmarkToggle => tracing::debug!("bookmark toggle"),
         Message::NextComment => tracing::debug!("next comment"),
         Message::PrevComment => tracing::debug!("prev comment"),
+        Message::ViewBaselineLog => tracing::debug!("view baseline log"),
         // API results logged in their handlers; Quit logged in update()
         Message::PatchsetsLoaded(_)
         | Message::PatchsetDetailLoaded(_)
@@ -270,6 +274,25 @@ fn handle_view_raw_log(app: &App) -> Cmd {
     Cmd::OpenEditor {
         content: log,
         editor,
+    }
+}
+
+/// Handle `Message::ViewBaselineLog` — open baseline logs in editor.
+fn handle_view_baseline_log(app: &App) -> Cmd {
+    let content = app
+        .selected_detail
+        .as_ref()
+        .and_then(|d| d.baseline_logs.as_ref())
+        .filter(|s| !s.is_empty());
+    match content {
+        Some(logs) => {
+            let editor = app.config.resolved_editor();
+            Cmd::OpenEditor {
+                content: logs.clone(),
+                editor,
+            }
+        }
+        None => Cmd::None,
     }
 }
 
@@ -331,6 +354,10 @@ fn compute_comment_positions(detail: &PatchsetDetail) -> Vec<usize> {
 
     // Header: status+author+date (1 line)
     line += 1;
+    // Failed reason (conditional)
+    if detail.failed_reason.is_some() {
+        line += 1;
+    }
     // Parts + subsystems (conditional)
     if detail.total_parts.is_some() && detail.received_parts.is_some() {
         line += 1;

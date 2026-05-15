@@ -300,6 +300,9 @@ pub struct PatchsetDetail {
     /// LLM provider.
     #[serde(default)]
     pub provider: Option<String>,
+    /// Reason for failure, if applicable.
+    #[serde(default)]
+    pub failed_reason: Option<String>,
 }
 
 #[cfg(test)]

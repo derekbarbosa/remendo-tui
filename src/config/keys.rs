@@ -52,6 +52,8 @@ pub enum KeyAction {
     NextPage,
     /// Navigate to the previous page of results.
     PrevPage,
+    /// View the baseline application log in `$EDITOR`.
+    ViewBaselineLog,
 }
 
 impl KeyAction {
@@ -78,6 +80,7 @@ impl KeyAction {
             Self::PrevComment => "Prev comment",
             Self::NextPage => "Next page",
             Self::PrevPage => "Prev page",
+            Self::ViewBaselineLog => "View baseline log",
         }
     }
 }
@@ -231,6 +234,7 @@ fn parse_action(s: &str) -> Option<KeyAction> {
         "prev_comment" => KeyAction::PrevComment,
         "next_page" => KeyAction::NextPage,
         "prev_page" => KeyAction::PrevPage,
+        "view_baseline_log" => KeyAction::ViewBaselineLog,
         _ => return None,
     })
 }
@@ -272,6 +276,7 @@ impl Default for KeybindingsConfig {
             ("prev_comment", "N"),
             ("next_page", "]"),
             ("prev_page", "["),
+            ("view_baseline_log", "L"),
         ];
 
         let mut bindings = HashMap::new();
