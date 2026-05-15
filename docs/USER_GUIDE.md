@@ -136,7 +136,7 @@ Navigate within the detail view with:
 - `j` / `k` -- scroll detail content
 - `Ctrl-d` / `Ctrl-u` -- half-page scroll
 - `r` -- view the raw review log in your `$EDITOR`
-- `n` / `N` -- next / previous finding or comment *(planned)*
+- `n` / `N` -- next / previous finding or comment
 - `Esc` -- return to the patchset list
 
 ## Searching and Filtering
@@ -157,14 +157,13 @@ If the Sashiko instance tracks multiple mailing lists, you can filter
 the patchset list by mailing list. This narrows results to patches
 submitted to a specific list (e.g., `netdev`, `linux-iio`).
 
-## Bookmarks (Planned)
-
-> **Note**: Bookmarks are not yet implemented. The `b` keybinding is
-> reserved for this feature in a future release.
+## Bookmarks
 
 Press `b` to bookmark the currently selected patchset. Bookmarked items
-will be visually marked in the list. Bookmarks will persist across sessions
-(stored in `$XDG_STATE_HOME/remendo/`).
+are visually marked with a `*` indicator in the list. Bookmarks persist
+across sessions (stored in `$XDG_STATE_HOME/remendo/bookmarks.json`).
+
+Press `b` again on a bookmarked patchset to remove the bookmark.
 
 ## Viewing Raw Logs
 
@@ -282,7 +281,7 @@ view shows each finding with its full description and severity rationale.
 | `]` / `[` | Next / previous page |
 | `Enter` | Open selected item |
 | `/` | Search |
-| `b` | Toggle bookmark *(planned)* |
+| `b` | Toggle bookmark |
 
 ### Detail View
 
@@ -290,7 +289,7 @@ view shows each finding with its full description and severity rationale.
 |-----|--------|
 | `j` / `k` | Scroll content |
 | `Ctrl-d` / `Ctrl-u` | Half-page scroll |
-| `n` / `N` | Next / previous comment *(planned)* |
+| `n` / `N` | Next / previous comment |
 | `r` | View raw log |
 | `Esc` | Close detail view |
 

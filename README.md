@@ -148,10 +148,14 @@ Falls back to `RUST_LOG` if `REMENDO_LOG` is not set.
 - Patchset detail view with inline AI reviews
 - Vim-style search (`/`) with server-side filtering
 - Help overlay (`?`) with all keybinding mappings
+- Bookmark system with persistent storage (`b` to toggle)
+- Comment navigation in detail view (`n`/`N` to jump between reviews)
+- In-memory API response caching with configurable TTL
 - File-based debug logging via `REMENDO_LOG`
-- 183+ unit and integration tests
+- 210+ unit and integration tests
 
-Upcoming work includes caching layer, bookmarks, and comment navigation.
+Upcoming work includes authentication support, disk-based cache persistence,
+and a message browser view.
 
 ## Requirements
 
