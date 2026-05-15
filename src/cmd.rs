@@ -45,6 +45,10 @@ pub enum Cmd {
         /// Path to the bookmarks file.
         path: PathBuf,
     },
+    /// Fetch the message list for the active remote.
+    FetchMessages(ListParams),
+    /// Fetch full detail for a specific message.
+    FetchMessageDetail(PatchId),
     /// Clear the API response cache, then execute a batch.
     ClearCacheAndBatch(Vec<Cmd>),
     /// Execute multiple commands concurrently.
@@ -57,6 +61,7 @@ pub enum Cmd {
 /// The `active_remote` key is used to look up the correct client
 /// from `clients`. If the remote is not found, an error message
 /// is sent instead.
+#[allow(clippy::too_many_lines)]
 pub fn execute<S: ::std::hash::BuildHasher>(
     cmd: Cmd,
     clients: &HashMap<String, Arc<dyn SashikoApi>, S>,
@@ -123,6 +128,40 @@ pub fn execute<S: ::std::hash::BuildHasher>(
                 });
             } else {
                 let _ = msg_tx.send(Message::PatchsetDetailLoaded(Box::new(Err(
+                    no_remote_error(active_remote),
+                ))));
+            }
+        }
+        Cmd::FetchMessages(params) => {
+            tracing::debug!(
+                remote = active_remote,
+                page = params.page,
+                "cmd: fetch messages"
+            );
+            if let Some(client) = clients.get(active_remote) {
+                let client = Arc::clone(client);
+                let tx = msg_tx.clone();
+                tokio::spawn(async move {
+                    let result = client.messages(&params).await;
+                    let _ = tx.send(Message::MessagesLoaded(result));
+                });
+            } else {
+                let _ = msg_tx.send(Message::MessagesLoaded(Err(no_remote_error(
+                    active_remote,
+                ))));
+            }
+        }
+        Cmd::FetchMessageDetail(id) => {
+            tracing::debug!(remote = active_remote, id = %id, "cmd: fetch message detail");
+            if let Some(client) = clients.get(active_remote) {
+                let client = Arc::clone(client);
+                let tx = msg_tx.clone();
+                tokio::spawn(async move {
+                    let result = client.message_detail(&id).await;
+                    let _ = tx.send(Message::MessageDetailLoaded(Box::new(result)));
+                });
+            } else {
+                let _ = msg_tx.send(Message::MessageDetailLoaded(Box::new(Err(
                     no_remote_error(active_remote),
                 ))));
             }

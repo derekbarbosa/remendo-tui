@@ -4,7 +4,7 @@
 //! This module contains no state mutation — it is a pure
 //! function of `App` → visual output.
 
-use crate::app::{App, FocusPanel, InputMode, ViewMode};
+use crate::app::{App, FocusPanel, InputMode, ListContent, ViewMode};
 use crate::config::theme::ColorPalette;
 use crate::models::{FindingCounts, PatchsetStatus};
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -54,7 +54,10 @@ pub fn view(app: &App, frame: &mut Frame) {
             render_main_pane(app, frame, chunks[1], palette);
             render_loading_dialog(app, frame, palette);
         }
-        ViewMode::Detail => render_detail_view(app, frame, chunks[1], palette),
+        ViewMode::Detail => match app.list_content {
+            ListContent::Patchsets => render_detail_view(app, frame, chunks[1], palette),
+            ListContent::Messages => render_message_detail(app, frame, chunks[1], palette),
+        },
     }
 
     // --- Help overlay (rendered on top of everything) ---
@@ -170,9 +173,12 @@ fn build_main_title(app: &App) -> String {
     } else {
         &app.active_remote
     };
-    let total_pages = app.patchsets.total_pages();
+    let (content_label, content_total, total_pages) = match app.list_content {
+        ListContent::Patchsets => ("patchsets", app.patchsets.total, app.patchsets.total_pages()),
+        ListContent::Messages => ("messages", app.messages.total, app.messages.total_pages()),
+    };
     let page_indicator = if total_pages > 1 {
-        format!(" | page {}/{total_pages}", app.patchsets.page)
+        format!(" | page {}/{total_pages}", app.list_params.page)
     } else {
         String::new()
     };
@@ -188,11 +194,11 @@ fn build_main_title(app: &App) -> String {
         .map_or(String::new(), |l| format!(" | list: {l}"));
     if let Some(ref stats) = app.stats {
         format!(
-            " remendo | {} | v{} | {} pending | {} reviewing | {} patchsets{page_indicator}{search_indicator}{list_indicator} ",
-            remote, stats.version, stats.pending, stats.reviewing, app.patchsets.total
+            " remendo | {remote} | v{} | {} pending | {} reviewing | {content_total} {content_label}{page_indicator}{search_indicator}{list_indicator} ",
+            stats.version, stats.pending, stats.reviewing
         )
     } else {
-        format!(" remendo | {} | {} patchsets{page_indicator}{search_indicator}{list_indicator} ", remote, app.patchsets.total)
+        format!(" remendo | {remote} | {content_total} {content_label}{page_indicator}{search_indicator}{list_indicator} ")
     }
 }
 
@@ -207,9 +213,13 @@ fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, p
         .border_style(Style::default().fg(border_color));
 
     // Empty list — show loading, error, or no-results placeholder
-    if app.patchsets.items.is_empty() {
+    let items_empty = match app.list_content {
+        ListContent::Patchsets => app.patchsets.items.is_empty(),
+        ListContent::Messages => app.messages.items.is_empty(),
+    };
+    if items_empty {
         let text = if app.error_state.is_some() {
-            "Error loading patchsets. Press Ctrl-r to retry.".to_string()
+            "Error loading. Press Ctrl-r to retry.".to_string()
         } else if let Some(ref q) = app.list_params.search {
             format!("No results for \"{q}\"")
         } else {
@@ -217,6 +227,12 @@ fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, p
         };
         let paragraph = Paragraph::new(text).block(block);
         frame.render_widget(paragraph, area);
+        return;
+    }
+
+    // Branch rendering by list content type
+    if app.list_content == ListContent::Messages {
+        render_message_table(app, frame, area, block, palette);
         return;
     }
 
@@ -427,6 +443,149 @@ fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
 
 /// Render the help overlay showing all keybinding mappings.
 /// Render a loading dialog showing the selected patchset being fetched.
+/// Render the message list table.
+fn render_message_table(
+    app: &App,
+    frame: &mut Frame,
+    area: Rect,
+    block: Block<'_>,
+    palette: &ColorPalette,
+) {
+    let rows: Vec<Row> = app
+        .messages
+        .items
+        .iter()
+        .map(|msg| {
+            Row::new(vec![
+                Cell::from(msg.subject.as_deref().unwrap_or("(no subject)")),
+                Cell::from(msg.author.as_deref().unwrap_or("(unknown)"))
+                    .style(Style::default().fg(palette.muted.color())),
+                Cell::from(format_date(msg.date))
+                    .style(Style::default().fg(palette.muted.color())),
+                Cell::from(msg.mailing_list.as_deref().unwrap_or(""))
+                    .style(Style::default().fg(palette.muted.color())),
+            ])
+        })
+        .collect();
+
+    let header = Row::new(vec![
+        Cell::from("Subject"),
+        Cell::from("Author"),
+        Cell::from("Date"),
+        Cell::from("List"),
+    ])
+    .style(Style::default().fg(palette.accent.color()).bold());
+
+    let widths = [
+        Constraint::Min(30),
+        Constraint::Length(20),
+        Constraint::Length(10),
+        Constraint::Length(24),
+    ];
+
+    let table = Table::new(rows, widths)
+        .header(header)
+        .block(block)
+        .row_highlight_style(
+            Style::default()
+                .bg(palette.selected_bg.color())
+                .fg(palette.selected_fg.color()),
+        );
+
+    let mut table_state = TableState::default();
+    table_state.select(Some(app.selected_index));
+
+    frame.render_stateful_widget(table, area, &mut table_state);
+}
+
+/// Render the message detail view.
+fn render_message_detail(app: &App, frame: &mut Frame, area: Rect, palette: &ColorPalette) {
+    let border_color = panel_border_color(app.focus, FocusPanel::PatchsetList, palette);
+
+    let Some(ref msg) = app.selected_message else {
+        let block = Block::default()
+            .title(" Loading message... ".bold())
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(border_color));
+        frame.render_widget(Paragraph::new("").block(block), area);
+        return;
+    };
+
+    let subject = msg.subject.as_deref().unwrap_or("(no subject)");
+    let title = format!(" {subject} ");
+    let block = Block::default()
+        .title(title.bold())
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(border_color));
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    // Header
+    lines.push(Line::from(vec![
+        Span::styled("From: ", Style::default().fg(palette.muted.color())),
+        Span::raw(msg.author.as_deref().unwrap_or("(unknown)")),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled("Date: ", Style::default().fg(palette.muted.color())),
+        Span::raw(format_date(msg.date)),
+    ]));
+    if let Some(ref to) = msg.to {
+        lines.push(Line::from(vec![
+            Span::styled("To: ", Style::default().fg(palette.muted.color())),
+            Span::raw(to.as_str()),
+        ]));
+    }
+    if let Some(ref cc) = msg.cc {
+        lines.push(Line::from(vec![
+            Span::styled("Cc: ", Style::default().fg(palette.muted.color())),
+            Span::raw(cc.as_str()),
+        ]));
+    }
+    if let Some(ref list) = msg.mailing_list {
+        lines.push(Line::from(vec![
+            Span::styled("List: ", Style::default().fg(palette.muted.color())),
+            Span::raw(list.as_str()),
+        ]));
+    }
+
+    lines.push(Line::raw(""));
+
+    // Body
+    if let Some(ref body) = msg.body {
+        for body_line in body.lines() {
+            lines.push(Line::raw(body_line));
+        }
+    } else {
+        lines.push(Line::styled(
+            "(no body)",
+            Style::default().fg(palette.muted.color()),
+        ));
+    }
+
+    // Diff section
+    if let Some(ref diff) = msg.diff {
+        lines.push(Line::raw(""));
+        lines.push(Line::styled(
+            "── Diff ──",
+            Style::default().fg(palette.accent.color()).bold(),
+        ));
+        for diff_line in diff.lines() {
+            lines.push(Line::styled(
+                diff_line,
+                Style::default().fg(palette.muted.color()),
+            ));
+        }
+    }
+
+    let scroll_offset = u16::try_from(app.detail_scroll_offset).unwrap_or(u16::MAX);
+    let paragraph = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll_offset, 0));
+
+    frame.render_widget(paragraph, area);
+}
+
 fn render_loading_dialog(app: &App, frame: &mut Frame, palette: &ColorPalette) {
     let Some(ref ctx) = app.loading_context else {
         return;

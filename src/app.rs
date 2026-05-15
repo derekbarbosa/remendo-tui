@@ -6,7 +6,7 @@
 use crate::bookmarks::BookmarkStore;
 use crate::client::types::ListParams;
 use crate::config::Config;
-use crate::models::{MailingList, Paginated, Patchset, PatchsetDetail, ServerStats};
+use crate::models::{EmailMessage, MailingList, Paginated, Patchset, PatchsetDetail, ServerStats};
 use std::path::PathBuf;
 
 /// Top-level application state.
@@ -68,6 +68,12 @@ pub struct App {
     pub comment_positions: Vec<usize>,
     /// Index into `comment_positions` for the current comment.
     pub current_comment_index: Option<usize>,
+    /// What content the list view is displaying (patchsets or messages).
+    pub list_content: ListContent,
+    /// Currently displayed message list (when `list_content == Messages`).
+    pub messages: Paginated<EmailMessage>,
+    /// Loaded message detail for the message detail view.
+    pub selected_message: Option<EmailMessage>,
 }
 
 impl App {
@@ -112,6 +118,14 @@ impl App {
             bookmarks_path: PathBuf::new(),
             comment_positions: vec![],
             current_comment_index: None,
+            list_content: ListContent::default(),
+            messages: Paginated {
+                items: vec![],
+                total: 0,
+                page: 1,
+                per_page: 50,
+            },
+            selected_message: None,
         }
     }
 
@@ -163,6 +177,16 @@ pub enum SidebarSection {
     Remotes,
     /// The mailing lists.
     MailingLists,
+}
+
+/// What content the list view is displaying.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum ListContent {
+    /// Showing patchsets (default).
+    #[default]
+    Patchsets,
+    /// Showing mailing list messages.
+    Messages,
 }
 
 /// What mode the keyboard is operating in.

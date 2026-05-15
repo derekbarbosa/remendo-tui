@@ -54,6 +54,8 @@ pub enum KeyAction {
     PrevPage,
     /// View the baseline application log in `$EDITOR`.
     ViewBaselineLog,
+    /// Toggle between patchset and message list views.
+    ToggleListContent,
 }
 
 impl KeyAction {
@@ -81,6 +83,7 @@ impl KeyAction {
             Self::NextPage => "Next page",
             Self::PrevPage => "Prev page",
             Self::ViewBaselineLog => "View baseline log",
+            Self::ToggleListContent => "Toggle messages",
         }
     }
 }
@@ -235,6 +238,7 @@ fn parse_action(s: &str) -> Option<KeyAction> {
         "next_page" => KeyAction::NextPage,
         "prev_page" => KeyAction::PrevPage,
         "view_baseline_log" => KeyAction::ViewBaselineLog,
+        "toggle_list_content" => KeyAction::ToggleListContent,
         _ => return None,
     })
 }
@@ -277,6 +281,7 @@ impl Default for KeybindingsConfig {
             ("next_page", "]"),
             ("prev_page", "["),
             ("view_baseline_log", "L"),
+            ("toggle_list_content", "m"),
         ];
 
         let mut bindings = HashMap::new();
