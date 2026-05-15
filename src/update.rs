@@ -95,8 +95,10 @@ pub enum Message {
 /// assert!(matches!(cmd, Cmd::None));
 /// ```
 pub fn update(app: &mut App, msg: Message) -> Cmd {
+    log_message(&msg, app);
     match msg {
         Message::Quit => {
+            tracing::info!("app quit requested");
             app.running_state = RunningState::Done;
             Cmd::None
         }
@@ -186,6 +188,41 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
         | Message::SearchSubmit
         | Message::SearchCancel => handle_search(app, &msg),
         Message::ViewRawLog => handle_view_raw_log(app),
+    }
+}
+
+/// Log a message at the appropriate tracing level.
+fn log_message(msg: &Message, app: &App) {
+    match msg {
+        Message::Init => tracing::info!("init"),
+        Message::Refresh => tracing::debug!("refresh"),
+        Message::Select => {
+            tracing::debug!(index = app.selected_index, "select");
+        }
+        Message::NextMailbox => tracing::debug!("next mailbox"),
+        Message::PrevMailbox => tracing::debug!("prev mailbox"),
+        Message::NextPage => tracing::debug!(page = app.list_params.page, "next page"),
+        Message::PrevPage => tracing::debug!(page = app.list_params.page, "prev page"),
+        Message::Back => tracing::debug!("back"),
+        Message::ToggleFocus => tracing::debug!("toggle focus"),
+        Message::ToggleHelp => tracing::debug!("toggle help"),
+        Message::SearchStart => tracing::debug!("search start"),
+        Message::SearchSubmit => tracing::debug!("search submit"),
+        Message::SearchCancel => tracing::debug!("search cancel"),
+        Message::ViewRawLog => tracing::debug!("view raw log"),
+        Message::Tick | Message::Render => tracing::trace!("tick/render"),
+        Message::Resize(w, h) => tracing::trace!(w, h, "resize"),
+        Message::ScrollDown | Message::ScrollUp
+        | Message::HalfPageDown | Message::HalfPageUp => {
+            tracing::trace!("scroll");
+        }
+        Message::SearchInput(_) => tracing::trace!("search input"),
+        // API results logged in their handlers; Quit logged in update()
+        Message::PatchsetsLoaded(_)
+        | Message::PatchsetDetailLoaded(_)
+        | Message::StatsLoaded(_)
+        | Message::ListsLoaded(_)
+        | Message::Quit => {}
     }
 }
 
@@ -279,10 +316,19 @@ fn handle_search(app: &mut App, msg: &Message) -> Cmd {
 fn handle_patchsets_loaded(app: &mut App, result: Result<Paginated<Patchset>, ApiError>) -> Cmd {
     match result {
         Ok(paginated) => {
+            tracing::info!(
+                count = paginated.items.len(),
+                total = paginated.total,
+                page = paginated.page,
+                "patchsets loaded"
+            );
             app.patchsets = paginated;
             app.error_state = None;
         }
-        Err(e) => app.error_state = Some(e.to_string()),
+        Err(ref e) => {
+            tracing::error!(error = %e, "patchsets load failed");
+            app.error_state = Some(e.to_string());
+        }
     }
     Cmd::None
 }
@@ -305,11 +351,20 @@ fn handle_select(app: &mut App) -> Cmd {
 fn handle_detail_loaded(app: &mut App, result: Result<PatchsetDetail, ApiError>) -> Cmd {
     match result {
         Ok(detail) => {
+            tracing::info!(
+                id = detail.id,
+                patches = detail.patches.len(),
+                reviews = detail.reviews.len(),
+                "patchset detail loaded"
+            );
             app.selected_detail = Some(detail);
             app.view_mode = ViewMode::Detail;
             app.error_state = None;
         }
-        Err(e) => app.error_state = Some(e.to_string()),
+        Err(ref e) => {
+            tracing::error!(error = %e, "patchset detail load failed");
+            app.error_state = Some(e.to_string());
+        }
     }
     Cmd::None
 }
@@ -318,10 +373,14 @@ fn handle_detail_loaded(app: &mut App, result: Result<PatchsetDetail, ApiError>)
 fn handle_stats_loaded(app: &mut App, result: Result<ServerStats, ApiError>) -> Cmd {
     match result {
         Ok(stats) => {
+            tracing::info!(version = %stats.version, pending = stats.pending, "stats loaded");
             app.stats = Some(stats);
             app.error_state = None;
         }
-        Err(e) => app.error_state = Some(e.to_string()),
+        Err(ref e) => {
+            tracing::error!(error = %e, "stats load failed");
+            app.error_state = Some(e.to_string());
+        }
     }
     Cmd::None
 }
@@ -330,10 +389,14 @@ fn handle_stats_loaded(app: &mut App, result: Result<ServerStats, ApiError>) -> 
 fn handle_lists_loaded(app: &mut App, result: Result<Vec<MailingList>, ApiError>) -> Cmd {
     match result {
         Ok(lists) => {
+            tracing::info!(count = lists.len(), "mailing lists loaded");
             app.mailing_lists = lists;
             app.error_state = None;
         }
-        Err(e) => app.error_state = Some(e.to_string()),
+        Err(ref e) => {
+            tracing::error!(error = %e, "mailing lists load failed");
+            app.error_state = Some(e.to_string());
+        }
     }
     Cmd::None
 }

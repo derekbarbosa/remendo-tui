@@ -55,6 +55,13 @@ pub fn execute<S: ::std::hash::BuildHasher>(
     match cmd {
         Cmd::None => {}
         Cmd::FetchPatchsets(params) => {
+            tracing::debug!(
+                remote = active_remote,
+                page = params.page,
+                search = ?params.search,
+                mailing_list = ?params.mailing_list,
+                "cmd: fetch patchsets"
+            );
             if let Some(client) = clients.get(active_remote) {
                 let client = Arc::clone(client);
                 let tx = msg_tx.clone();
@@ -69,6 +76,7 @@ pub fn execute<S: ::std::hash::BuildHasher>(
             }
         }
         Cmd::FetchLists => {
+            tracing::debug!(remote = active_remote, "cmd: fetch lists");
             if let Some(client) = clients.get(active_remote) {
                 let client = Arc::clone(client);
                 let tx = msg_tx.clone();
@@ -81,6 +89,7 @@ pub fn execute<S: ::std::hash::BuildHasher>(
             }
         }
         Cmd::FetchStats => {
+            tracing::debug!(remote = active_remote, "cmd: fetch stats");
             if let Some(client) = clients.get(active_remote) {
                 let client = Arc::clone(client);
                 let tx = msg_tx.clone();
@@ -93,6 +102,7 @@ pub fn execute<S: ::std::hash::BuildHasher>(
             }
         }
         Cmd::FetchPatchsetDetail(id) => {
+            tracing::debug!(remote = active_remote, id = %id, "cmd: fetch patchset detail");
             if let Some(client) = clients.get(active_remote) {
                 let client = Arc::clone(client);
                 let tx = msg_tx.clone();
@@ -107,6 +117,7 @@ pub fn execute<S: ::std::hash::BuildHasher>(
             }
         }
         Cmd::OpenEditor { content, editor } => {
+            tracing::info!(editor = %editor, content_len = content.len(), "cmd: open editor");
             let tx = msg_tx.clone();
             tokio::spawn(async move {
                 let result = open_in_editor(&content, &editor).await;
