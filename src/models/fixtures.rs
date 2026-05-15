@@ -3,7 +3,7 @@
 //! Provides `::fixture()` methods that return realistically populated
 //! instances suitable for unit and snapshot tests without network calls.
 
-#![allow(clippy::must_use_candidate)]
+#![allow(clippy::must_use_candidate, clippy::wildcard_imports)]
 
 use super::*;
 
@@ -86,6 +86,60 @@ impl EmailMessage {
     }
 }
 
+impl PatchsetDetail {
+    /// Returns a fixture patchset detail with nested data for testing.
+    pub fn fixture() -> Self {
+        Self {
+            id: 1,
+            subject: Some("[PATCH v2 0/3] Fix null deref in netfilter".to_string()),
+            status: PatchsetStatus::Reviewed,
+            author: Some("developer@example.com".to_string()),
+            date: Some(1_778_690_980),
+            message_id: Some("20260513-fix-null-deref@example.com".to_string()),
+            total_parts: Some(3),
+            received_parts: Some(3),
+            subsystems: vec!["netfilter-devel".to_string()],
+            baseline: Some(common::Baseline {
+                branch: Some("nf/HEAD".to_string()),
+                commit: Some("abc123def456".to_string()),
+                repo_url: Some(
+                    "git://git.kernel.org/pub/scm/linux/kernel/git/netfilter/nf.git".to_string(),
+                ),
+            }),
+            baseline_logs: None,
+            patches: vec![Patch::fixture()],
+            reviews: vec![Review::fixture()],
+            thread: vec![ThreadMessage::fixture()],
+            model_name: Some("gemini-3.1-pro-preview".to_string()),
+            provider: Some("gemini".to_string()),
+        }
+    }
+}
+
+impl ServerStats {
+    /// Returns a fixture server stats for testing.
+    pub fn fixture() -> Self {
+        Self {
+            status: "ok".to_string(),
+            version: "0.1.6".to_string(),
+            pending: 42,
+            reviewing: 3,
+            messages: 136_621,
+            patchsets: 19_558,
+        }
+    }
+}
+
+impl MailingList {
+    /// Returns a fixture mailing list for testing.
+    pub fn fixture() -> Self {
+        Self {
+            name: "LKML".to_string(),
+            group: Some("org.kernel.vger.linux-kernel".to_string()),
+        }
+    }
+}
+
 impl ThreadMessage {
     /// Returns a fixture thread message for testing.
     pub fn fixture() -> Self {
@@ -101,8 +155,8 @@ impl ThreadMessage {
 }
 
 #[cfg(test)]
-    #[allow(clippy::expect_used)]
-    mod tests {
+#[allow(clippy::expect_used)]
+mod tests {
     use super::*;
 
     #[test]

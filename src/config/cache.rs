@@ -47,7 +47,10 @@ mod tests {
             ttl_seconds = 60
         "#;
         let cfg: CacheConfig = toml::from_str(toml_str).expect("parse cache config");
-        assert_eq!(cfg.dir.as_deref(), Some(std::path::Path::new("/tmp/remendo-cache")));
+        assert_eq!(
+            cfg.dir.as_deref(),
+            Some(std::path::Path::new("/tmp/remendo-cache"))
+        );
         assert_eq!(cfg.ttl_seconds, 60);
     }
 }

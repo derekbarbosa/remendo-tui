@@ -6,6 +6,9 @@ authors = ["derekbarbosa <derekasobrab@gmail.com>"]
 license = "AGPL-3.0-or-later"
 edition = "2024"
 
+[features]
+test-support = []
+
 [dependencies]
 async-trait = "0.1"
 color-eyre = "0.6.3"
@@ -23,6 +26,10 @@ tracing = "0.1"
 url = "2"
 
 [dev-dependencies]
+insta = { version = "1", default-features = false }
+pretty_assertions = "1"
+remendo-tui = { path = ".", features = ["test-support"] }
+wiremock = "0.6"
 
 [lints.rust]
 unsafe_code = "deny"

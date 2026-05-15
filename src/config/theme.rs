@@ -185,8 +185,7 @@ mod tests {
             accent = "#ff0000"
             error = "red"
         "##;
-        let theme: ThemeConfig =
-            toml::from_str(toml_str).expect("parse theme");
+        let theme: ThemeConfig = toml::from_str(toml_str).expect("parse theme");
         assert_eq!(theme.colors.accent, ColorValue(Color::Rgb(255, 0, 0)));
         assert_eq!(theme.colors.error, ColorValue(Color::Red));
         // Non-overridden fields keep defaults

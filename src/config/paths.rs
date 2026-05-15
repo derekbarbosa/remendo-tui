@@ -61,10 +61,7 @@ mod tests {
     fn resolve_produces_paths() {
         let paths = AppPaths::resolve().expect("resolve paths");
         assert!(
-            paths
-                .config_file
-                .to_string_lossy()
-                .ends_with("config.toml"),
+            paths.config_file.to_string_lossy().ends_with("config.toml"),
             "config_file should end with config.toml, got: {:?}",
             paths.config_file
         );

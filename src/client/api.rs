@@ -6,7 +6,7 @@
 use crate::client::error::ApiError;
 use crate::client::types::{ListParams, ReviewQuery};
 use crate::models::{
-    EmailMessage, MailingList, Paginated, Patchset, PatchsetDetail, PatchId, ServerStats,
+    EmailMessage, MailingList, Paginated, PatchId, Patchset, PatchsetDetail, ServerStats,
 };
 
 /// Read-only access to a single Sashiko instance.

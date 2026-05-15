@@ -1,35 +1,9 @@
-//! remendo-tui — a terminal-based interface for interacting with
-//! agentic patch review mechanisms (Sashiko instances).
-#![warn(clippy::pedantic, clippy::style, clippy::perf)]
-#![deny(clippy::unwrap_used)]
+//! remendo-tui binary entry point.
 
-/// Application state and lifecycle.
-pub mod app;
-
-/// Sashiko API client: trait, HTTP implementation, error types.
-pub mod client;
-
-/// Application configuration: remotes, keybindings, theme, paths.
-pub mod config;
-
-/// Terminal events and event-to-message translation.
-pub mod event;
-
-/// Domain data models for Sashiko API entities.
-pub mod models;
-
-/// Widget renderer.
-pub mod ui;
-
-/// Terminal user interface lifecycle.
-pub mod tui;
-
-/// Application state updater (TEA update function).
-pub mod update;
-
-use app::RunningState;
 use color_eyre::Result;
-use config::Config;
+use remendo_tui::app::RunningState;
+use remendo_tui::config::Config;
+use remendo_tui::{event, tui, ui, update};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -47,7 +21,7 @@ async fn main() -> Result<()> {
     let mut tui = tui::Tui::new(4.0, 30.0)?;
     tui.enter()?;
 
-    let mut app = app::App::new(config);
+    let mut app = remendo_tui::app::App::new(config);
 
     loop {
         tui.draw(|f| ui::view(&app, f))?;

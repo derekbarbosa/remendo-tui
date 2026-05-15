@@ -76,8 +76,7 @@ impl Config {
         // Validate remote URLs
         for remote in &config.remotes {
             if remote.url.is_empty()
-                || (!remote.url.starts_with("http://")
-                    && !remote.url.starts_with("https://"))
+                || (!remote.url.starts_with("http://") && !remote.url.starts_with("https://"))
             {
                 warnings.push(ConfigWarning::InvalidRemoteUrl {
                     name: remote.name.clone(),

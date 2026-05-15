@@ -1,9 +1,9 @@
 //! Patchset and patchset-detail domain types.
 
 use super::common::{Baseline, Severity};
+use super::message::ThreadMessage;
 use super::patch::Patch;
 use super::review::Review;
-use super::message::ThreadMessage;
 use serde::{Deserialize, Deserializer};
 use std::fmt;
 
@@ -220,9 +220,8 @@ impl<'de> Deserialize<'de> for Patchset {
         D: Deserializer<'de>,
     {
         let raw = PatchsetRaw::deserialize(deserializer)?;
-        let clamp = |v: Option<i64>| -> u32 {
-            u32::try_from(v.unwrap_or(0).max(0)).unwrap_or(u32::MAX)
-        };
+        let clamp =
+            |v: Option<i64>| -> u32 { u32::try_from(v.unwrap_or(0).max(0)).unwrap_or(u32::MAX) };
         Ok(Self {
             id: raw.id,
             subject: raw.subject,
@@ -304,8 +303,8 @@ pub struct PatchsetDetail {
 }
 
 #[cfg(test)]
-    #[allow(clippy::expect_used)]
-    mod tests {
+#[allow(clippy::expect_used)]
+mod tests {
     use super::*;
 
     #[test]
@@ -348,7 +347,13 @@ pub struct PatchsetDetail {
     #[test]
     fn finding_counts_is_empty() {
         assert!(FindingCounts::default().is_empty());
-        assert!(!FindingCounts { low: 1, ..Default::default() }.is_empty());
+        assert!(
+            !FindingCounts {
+                low: 1,
+                ..Default::default()
+            }
+            .is_empty()
+        );
     }
 
     #[test]
