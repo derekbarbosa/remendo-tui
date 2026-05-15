@@ -111,8 +111,8 @@ fn refresh_returns_fetch_commands() {
     let mut app = App::new(Config::default());
     let cmd = update(&mut app, Message::Refresh);
     assert!(
-        matches!(cmd, Cmd::Batch(ref cmds) if cmds.len() == 2),
-        "Refresh should return Batch with 2 commands"
+        matches!(cmd, Cmd::Batch(ref cmds) if cmds.len() == 3),
+        "Refresh should return Batch with 3 commands (patchsets, lists, stats)"
     );
 }
 

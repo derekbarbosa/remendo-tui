@@ -4,14 +4,15 @@
 //! This module contains no state mutation — it is a pure
 //! function of `App` → visual output.
 
-use crate::app::{App, FocusPanel};
+use crate::app::{App, FocusPanel, ViewMode};
 use crate::config::theme::ColorPalette;
 use crate::models::{FindingCounts, PatchsetStatus};
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{
-    Block, Borders, Cell, List, ListItem, ListState, Paragraph, Row, Table, TableState,
+    Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Table, TableState,
+    Wrap,
 };
 use ratatui::Frame;
 
@@ -46,7 +47,15 @@ pub fn view(app: &App, frame: &mut Frame) {
     render_sidebar(app, frame, chunks[0], palette);
 
     // --- Main pane ---
-    render_main_pane(app, frame, chunks[1], palette);
+    match app.view_mode {
+        ViewMode::List => render_main_pane(app, frame, chunks[1], palette),
+        ViewMode::Detail => render_detail_view(app, frame, chunks[1], palette),
+    }
+
+    // --- Help overlay (rendered on top of everything) ---
+    if app.show_help {
+        render_help_overlay(app, frame, palette);
+    }
 }
 
 /// Return the border color for a panel based on whether it has focus.
@@ -105,7 +114,14 @@ fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, p
         } else {
             &app.active_remote
         };
-        format!(" remendo | {} | {} patchsets ", remote, app.patchsets.total)
+        if let Some(ref stats) = app.stats {
+            format!(
+                " remendo | {} | v{} | {} pending | {} reviewing | {} patchsets ",
+                remote, stats.version, stats.pending, stats.reviewing, app.patchsets.total
+            )
+        } else {
+            format!(" remendo | {} | {} patchsets ", remote, app.patchsets.total)
+        }
     };
 
     let block = Block::default()
@@ -281,6 +297,237 @@ fn format_findings<'a>(findings: &FindingCounts, palette: &'a ColorPalette) -> L
     }
 
     Line::from(spans)
+}
+
+/// Compute a centered rectangle within the given area.
+fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
+    let w = width.min(area.width);
+    let h = height.min(area.height);
+    let x = area.x + (area.width.saturating_sub(w)) / 2;
+    let y = area.y + (area.height.saturating_sub(h)) / 2;
+    Rect::new(x, y, w, h)
+}
+
+/// Render the help overlay showing all keybinding mappings.
+fn render_help_overlay(app: &App, frame: &mut Frame, palette: &ColorPalette) {
+    // Collect and sort bindings by action label
+    let mut entries: Vec<_> = app
+        .config
+        .keybindings
+        .bindings
+        .iter()
+        .map(|(combo, action)| (combo.to_string(), action.label()))
+        .collect();
+    entries.sort_by(|a, b| a.1.cmp(b.1));
+
+    let popup_width: u16 = 38;
+    let popup_height = u16::try_from(entries.len() + 4).unwrap_or(24).min(40);
+    let area = centered_rect(popup_width, popup_height, frame.area());
+
+    frame.render_widget(Clear, area);
+
+    let rows: Vec<Row> = entries
+        .iter()
+        .map(|(key, label)| {
+            Row::new(vec![
+                Cell::from(key.as_str()).style(Style::default().fg(palette.accent.color())),
+                Cell::from(*label),
+            ])
+        })
+        .collect();
+
+    let widths = [Constraint::Length(12), Constraint::Min(18)];
+    let block = Block::default()
+        .title(" Keybindings ".bold())
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(palette.accent.color()));
+
+    let table = Table::new(rows, widths).block(block);
+    frame.render_widget(table, area);
+}
+
+/// Render the patchset detail view in the given area.
+fn render_detail_view(app: &App, frame: &mut Frame, area: Rect, palette: &ColorPalette) {
+    let border_color = panel_border_color(app.focus, FocusPanel::PatchsetList, palette);
+
+    let Some(ref detail) = app.selected_detail else {
+        let block = Block::default()
+            .title(" Loading detail... ".bold())
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(border_color));
+        frame.render_widget(Paragraph::new("").block(block), area);
+        return;
+    };
+
+    let subject = detail.subject.as_deref().unwrap_or("(no subject)");
+    let title = format!(" {subject} ");
+    let block = Block::default()
+        .title(title.bold())
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(border_color));
+
+    let mut lines: Vec<Line> = Vec::new();
+    detail_header_lines(detail, palette, &mut lines);
+    detail_patches_lines(detail, palette, &mut lines);
+    detail_thread_lines(detail, palette, &mut lines);
+
+    let scroll_offset = u16::try_from(app.detail_scroll_offset).unwrap_or(u16::MAX);
+    let paragraph = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll_offset, 0));
+
+    frame.render_widget(paragraph, area);
+}
+
+/// Build header lines for the detail view.
+fn detail_header_lines<'a>(
+    detail: &'a crate::models::PatchsetDetail,
+    palette: &'a ColorPalette,
+    lines: &mut Vec<Line<'a>>,
+) {
+    let status_style = status_color(detail.status, palette);
+    lines.push(Line::from(vec![
+        Span::styled(detail.status.to_string(), status_style),
+        Span::raw("  "),
+        Span::styled(
+            detail.author.as_deref().unwrap_or("(unknown)"),
+            Style::default().fg(palette.muted.color()),
+        ),
+        Span::raw("  "),
+        Span::styled(
+            format_date(detail.date),
+            Style::default().fg(palette.muted.color()),
+        ),
+    ]));
+
+    if let (Some(total), Some(received)) = (detail.total_parts, detail.received_parts) {
+        let sub_text = if detail.subsystems.is_empty() {
+            String::new()
+        } else {
+            format!("   {}", detail.subsystems.join(", "))
+        };
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("Parts: {received}/{total}"),
+                Style::default().fg(palette.muted.color()),
+            ),
+            Span::styled(sub_text, Style::default().fg(palette.muted.color())),
+        ]));
+    }
+
+    if let Some(ref baseline) = detail.baseline {
+        let branch = baseline.branch.as_deref().unwrap_or("?");
+        let commit = baseline
+            .commit
+            .as_deref()
+            .map_or("?", |c| if c.len() > 12 { &c[..12] } else { c });
+        lines.push(Line::styled(
+            format!("Baseline: {branch} @ {commit}"),
+            Style::default().fg(palette.info.color()),
+        ));
+    }
+
+    if let Some(ref model) = detail.model_name {
+        let provider = detail.provider.as_deref().unwrap_or("?");
+        lines.push(Line::styled(
+            format!("Model: {provider}/{model}"),
+            Style::default().fg(palette.muted.color()),
+        ));
+    }
+
+    lines.push(Line::raw(""));
+}
+
+/// Build patches + inline review lines for the detail view.
+fn detail_patches_lines<'a>(
+    detail: &'a crate::models::PatchsetDetail,
+    palette: &'a ColorPalette,
+    lines: &mut Vec<Line<'a>>,
+) {
+    let total_parts = detail.total_parts.unwrap_or(0);
+    lines.push(Line::styled(
+        format!("── Patches ({}) ──", detail.patches.len()),
+        Style::default().fg(palette.accent.color()).bold(),
+    ));
+
+    if detail.patches.is_empty() {
+        lines.push(Line::styled(
+            "(no patches)",
+            Style::default().fg(palette.muted.color()),
+        ));
+    } else {
+        for patch in &detail.patches {
+            let idx = patch.part_index.unwrap_or(0);
+            let status_str = patch
+                .status
+                .as_ref()
+                .map_or_else(|| "?".to_string(), ToString::to_string);
+            let patch_subject = patch.subject.as_deref().unwrap_or("(no subject)");
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("{idx}/{total_parts}  "),
+                    Style::default().fg(palette.accent.color()),
+                ),
+                Span::styled(
+                    format!("[{status_str}]  "),
+                    Style::default().fg(palette.success.color()),
+                ),
+                Span::raw(patch_subject),
+            ]));
+
+            let review = detail.reviews.iter().find(|r| r.patch_id == patch.id);
+            if let Some(rev) = review {
+                if let Some(ref summary) = rev.summary {
+                    lines.push(Line::styled(
+                        format!("  Review: {summary}"),
+                        Style::default().fg(palette.muted.color()),
+                    ));
+                }
+            } else {
+                lines.push(Line::styled(
+                    "  (no review)",
+                    Style::default().fg(palette.muted.color()),
+                ));
+            }
+        }
+    }
+
+    lines.push(Line::raw(""));
+}
+
+/// Build thread message lines for the detail view.
+fn detail_thread_lines<'a>(
+    detail: &'a crate::models::PatchsetDetail,
+    palette: &'a ColorPalette,
+    lines: &mut Vec<Line<'a>>,
+) {
+    lines.push(Line::styled(
+        format!("── Thread ({}) ──", detail.thread.len()),
+        Style::default().fg(palette.accent.color()).bold(),
+    ));
+
+    if detail.thread.is_empty() {
+        lines.push(Line::styled(
+            "(no messages)",
+            Style::default().fg(palette.muted.color()),
+        ));
+    } else {
+        for msg in &detail.thread {
+            let author = msg.author.as_deref().unwrap_or("(unknown)");
+            let date = format_date(msg.date);
+            let subj = msg.subject.as_deref().unwrap_or("(no subject)");
+            lines.push(Line::from(vec![
+                Span::styled(author, Style::default().fg(palette.accent.color())),
+                Span::raw("  "),
+                Span::styled(date, Style::default().fg(palette.muted.color())),
+            ]));
+            lines.push(Line::styled(
+                format!("  {subj}"),
+                Style::default().fg(palette.foreground.color()),
+            ));
+        }
+    }
 }
 
 #[cfg(test)]

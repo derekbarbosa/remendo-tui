@@ -51,6 +51,14 @@ pub fn handle_event(app: &App, event: &Event) -> Option<Message> {
         Event::Resize(w, h) => Some(Message::Resize(w, h)),
         Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
             let combo = KeyCombo::new(key_event.code, key_event.modifiers);
+            // Modal interception: help overlay swallows all keys except ?/Esc
+            if app.show_help {
+                return match app.config.keybindings.action_for(&combo) {
+                    Some(KeyAction::Help) => Some(Message::ToggleHelp),
+                    Some(KeyAction::CloseThread) => Some(Message::Back),
+                    _ => None,
+                };
+            }
             app.config
                 .keybindings
                 .action_for(&combo)
@@ -84,12 +92,12 @@ fn action_to_message(action: KeyAction) -> Option<Message> {
         KeyAction::NextMailbox => Some(Message::NextMailbox),
         KeyAction::PrevMailbox => Some(Message::PrevMailbox),
         KeyAction::FocusSidebar => Some(Message::ToggleFocus),
+        KeyAction::CloseThread => Some(Message::Back),
+        KeyAction::Help => Some(Message::ToggleHelp),
         // Other actions will produce messages when their UI slugs land
-        KeyAction::CloseThread
-        | KeyAction::Search
+        KeyAction::Search
         | KeyAction::BookmarkToggle
         | KeyAction::ViewRawLog
-        | KeyAction::Help
         | KeyAction::NextComment
         | KeyAction::PrevComment => None,
     }
