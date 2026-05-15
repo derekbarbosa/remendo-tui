@@ -90,7 +90,7 @@ pub fn execute<S: ::std::hash::BuildHasher>(
                 let client = Arc::clone(client);
                 let tx = msg_tx.clone();
                 tokio::spawn(async move {
-                    let result = client.patch_detail(&id).await;
+                    let result = client.patchset_summary(&id).await;
                     let _ = tx.send(Message::PatchsetDetailLoaded(Box::new(result)));
                 });
             } else {
