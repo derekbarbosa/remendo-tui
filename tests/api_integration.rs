@@ -4,7 +4,7 @@
 
 use remendo_tui::client::{ApiError, HttpClient, ListParams, SashikoApi};
 use remendo_tui::config::RemoteConfig;
-use remendo_tui::models::{Paginated, Patchset, ServerStats};
+use remendo_tui::models::{PatchId, Paginated, Patchset, PatchsetDetail, ServerStats};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -134,4 +134,35 @@ async fn handles_malformed_json() {
     let client = HttpClient::new(&test_remote(&server.uri())).expect("build client");
     let result: Result<ServerStats, ApiError> = client.stats().await;
     assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn fetches_patch_detail_successfully() {
+    let fixture =
+        std::fs::read_to_string("tests/fixtures/patch_detail.json").expect("read fixture");
+    let fixture_json: serde_json::Value =
+        serde_json::from_str(&fixture).expect("parse fixture JSON");
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/patch"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&fixture_json))
+        .mount(&server)
+        .await;
+
+    let client = HttpClient::new(&test_remote(&server.uri())).expect("build client");
+    let result: Result<PatchsetDetail, ApiError> =
+        client.patch_detail(&PatchId::Numeric(19555)).await;
+    assert!(result.is_ok(), "expected Ok, got: {result:?}");
+
+    let detail = result.expect("patch detail");
+    assert_eq!(detail.id, 19555);
+    assert_eq!(detail.patches.len(), 2);
+    assert_eq!(detail.reviews.len(), 1);
+    assert_eq!(detail.thread.len(), 2);
+    assert!(detail.baseline.is_some());
+    assert_eq!(
+        detail.subject.as_deref(),
+        Some("[PATCH v2 0/4] iio: light: fix null pointer dereference")
+    );
 }
