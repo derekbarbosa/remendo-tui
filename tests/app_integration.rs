@@ -394,3 +394,83 @@ fn search_flow_end_to_end() {
         _ => panic!("expected ClearCacheAndBatch"),
     }
 }
+
+#[test]
+fn select_shows_loading_then_detail() {
+    let mut app = app_with_remotes(&["upstream"]);
+
+    // Load patchsets
+    let patchsets = Paginated {
+        items: vec![Patchset::fixture()],
+        total: 1,
+        page: 1,
+        per_page: 50,
+    };
+    update(&mut app, Message::PatchsetsLoaded(Ok(patchsets)));
+
+    // Select — should transition to Loading with context
+    let cmd = update(&mut app, Message::Select);
+    assert_eq!(app.view_mode, ViewMode::Loading);
+    assert!(app.loading_context.is_some());
+    let ctx = app.loading_context.as_ref().expect("loading context");
+    assert_eq!(ctx.patchset_id, 1);
+    assert!(!ctx.subject.is_empty());
+    assert!(matches!(cmd, Cmd::FetchPatchsetDetail(_)));
+
+    // Detail arrives — should transition to Detail, clear loading context
+    let detail = PatchsetDetail::fixture();
+    update(
+        &mut app,
+        Message::PatchsetDetailLoaded(Box::new(Ok(detail))),
+    );
+    assert_eq!(app.view_mode, ViewMode::Detail);
+    assert!(app.loading_context.is_none());
+}
+
+#[test]
+fn select_loading_error_returns_to_list() {
+    let mut app = app_with_remotes(&["upstream"]);
+
+    let patchsets = Paginated {
+        items: vec![Patchset::fixture()],
+        total: 1,
+        page: 1,
+        per_page: 50,
+    };
+    update(&mut app, Message::PatchsetsLoaded(Ok(patchsets)));
+    update(&mut app, Message::Select);
+    assert_eq!(app.view_mode, ViewMode::Loading);
+
+    // Error arrives — should return to List
+    let err = ApiError::Network {
+        source: "timeout".into(),
+        remote: "upstream".to_string(),
+    };
+    update(
+        &mut app,
+        Message::PatchsetDetailLoaded(Box::new(Err(err))),
+    );
+    assert_eq!(app.view_mode, ViewMode::List);
+    assert!(app.loading_context.is_none());
+    assert!(app.error_state.is_some());
+}
+
+#[test]
+fn esc_during_loading_returns_to_list() {
+    let mut app = app_with_remotes(&["upstream"]);
+
+    let patchsets = Paginated {
+        items: vec![Patchset::fixture()],
+        total: 1,
+        page: 1,
+        per_page: 50,
+    };
+    update(&mut app, Message::PatchsetsLoaded(Ok(patchsets)));
+    update(&mut app, Message::Select);
+    assert_eq!(app.view_mode, ViewMode::Loading);
+
+    // Esc during loading — should cancel and return to list
+    update(&mut app, Message::Back);
+    assert_eq!(app.view_mode, ViewMode::List);
+    assert!(app.loading_context.is_none());
+}

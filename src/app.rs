@@ -39,6 +39,8 @@ pub struct App {
     pub view_mode: ViewMode,
     /// Loaded patchset detail for the detail view.
     pub selected_detail: Option<PatchsetDetail>,
+    /// Context for the loading screen (patchset being fetched).
+    pub loading_context: Option<LoadingContext>,
     /// Cached server stats from the last successful `/api/stats` response.
     pub stats: Option<ServerStats>,
     /// Whether the help overlay is currently visible.
@@ -96,6 +98,7 @@ impl App {
             focus: FocusPanel::default(),
             view_mode: ViewMode::default(),
             selected_detail: None,
+            loading_context: None,
             stats: None,
             show_help: false,
             detail_scroll_offset: 0,
@@ -135,8 +138,21 @@ pub enum ViewMode {
     /// Showing the patchset list table.
     #[default]
     List,
+    /// Loading a patchset detail (shows confirmation dialog).
+    Loading,
     /// Showing the detail view for a selected patchset.
     Detail,
+}
+
+/// Context for the loading screen — summary of the patchset being fetched.
+#[derive(Debug, Clone, Default)]
+pub struct LoadingContext {
+    /// Database ID of the patchset being loaded.
+    pub patchset_id: i64,
+    /// Subject line for visual confirmation.
+    pub subject: String,
+    /// Status text.
+    pub status: String,
 }
 
 /// Which section of the sidebar has focus when the sidebar is active.
