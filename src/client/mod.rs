@@ -5,12 +5,14 @@
 //! [`HttpClient`] is the production implementation using `reqwest`.
 
 pub mod api;
+pub mod cache;
 pub mod error;
 pub mod http;
 pub mod mock;
 pub mod types;
 
 pub use api::SashikoApi;
+pub use cache::CachingClient;
 pub use error::ApiError;
 pub use http::HttpClient;
 pub use mock::MockClient;
