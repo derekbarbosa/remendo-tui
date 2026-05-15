@@ -34,6 +34,21 @@ pub struct RemoteConfig {
     pub max_retries: u32,
 }
 
+impl RemoteConfig {
+    /// Create a fixture `RemoteConfig` with the given name for testing.
+    #[cfg(any(test, feature = "test-support"))]
+    #[must_use]
+    pub fn fixture(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            url: format!("https://{name}.example.com"),
+            auth_env: None,
+            timeout_seconds: 15,
+            max_retries: 3,
+        }
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {

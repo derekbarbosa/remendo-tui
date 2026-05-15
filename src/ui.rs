@@ -49,13 +49,22 @@ pub fn view(app: &App, frame: &mut Frame) {
     render_main_pane(app, frame, chunks[1], palette);
 }
 
-/// Render the remote/mailbox sidebar in the given area.
-fn render_sidebar(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, palette: &ColorPalette) {
-    let border_color = if app.focus == FocusPanel::Sidebar {
+/// Return the border color for a panel based on whether it has focus.
+fn panel_border_color(
+    current_focus: FocusPanel,
+    panel: FocusPanel,
+    palette: &ColorPalette,
+) -> ratatui::style::Color {
+    if current_focus == panel {
         palette.accent.color()
     } else {
         palette.border.color()
-    };
+    }
+}
+
+/// Render the remote/mailbox sidebar in the given area.
+fn render_sidebar(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, palette: &ColorPalette) {
+    let border_color = panel_border_color(app.focus, FocusPanel::Sidebar, palette);
 
     let title = format!(" Remotes ({}) ", app.config.remotes.len());
     let block = Block::default()
@@ -86,11 +95,7 @@ fn render_sidebar(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, pal
 
 /// Render the main patchset pane (table or placeholder) in the given area.
 fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, palette: &ColorPalette) {
-    let border_color = if app.focus == FocusPanel::PatchsetList {
-        palette.accent.color()
-    } else {
-        palette.border.color()
-    };
+    let border_color = panel_border_color(app.focus, FocusPanel::PatchsetList, palette);
 
     let status = if let Some(ref err) = app.error_state {
         format!(" remendo | ERROR: {err} ")
@@ -290,13 +295,7 @@ mod tests {
     fn make_config_with_remotes(names: &[&str]) -> Config {
         let mut config = Config::default();
         for name in names {
-            config.remotes.push(crate::config::RemoteConfig {
-                name: (*name).to_string(),
-                url: format!("https://{name}.example.com"),
-                auth_env: None,
-                timeout_seconds: 15,
-                max_retries: 3,
-            });
+            config.remotes.push(crate::config::RemoteConfig::fixture(name));
         }
         config
     }
