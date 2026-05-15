@@ -112,6 +112,7 @@ impl PatchsetDetail {
             thread: vec![ThreadMessage::fixture()],
             model_name: Some("gemini-3.1-pro-preview".to_string()),
             provider: Some("gemini".to_string()),
+            failed_reason: None,
         }
     }
 }

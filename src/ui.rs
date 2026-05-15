@@ -383,7 +383,15 @@ fn build_patchset_row<'a>(
     };
 
     let status_style = status_color(ps.status, palette);
-    let status_cell = Cell::from(ps.status.to_string()).style(status_style);
+    let status_text = match (&ps.failed_reason, ps.status) {
+        (Some(reason), PatchsetStatus::Failed | PatchsetStatus::FailedToApply) => {
+            let mut text = format!("Failed: {reason}");
+            text.truncate(14);
+            text
+        }
+        _ => ps.status.to_string(),
+    };
+    let status_cell = Cell::from(status_text).style(status_style);
     let subject_cell = Cell::from(ps.subject());
     let author_cell = Cell::from(ps.author()).style(Style::default().fg(palette.muted.color()));
     let date_cell =
@@ -556,6 +564,14 @@ fn detail_header_lines<'a>(
         ),
     ]));
 
+    // Show failure reason if present
+    if let Some(ref reason) = detail.failed_reason {
+        lines.push(Line::styled(
+            format!("Failed: {reason}"),
+            Style::default().fg(palette.error.color()),
+        ));
+    }
+
     if let (Some(total), Some(received)) = (detail.total_parts, detail.received_parts) {
         let sub_text = if detail.subsystems.is_empty() {
             String::new()
@@ -577,10 +593,21 @@ fn detail_header_lines<'a>(
             .commit
             .as_deref()
             .map_or("?", |c| if c.len() > 12 { &c[..12] } else { c });
-        lines.push(Line::styled(
+        let has_logs = detail
+            .baseline_logs
+            .as_ref()
+            .is_some_and(|s| !s.is_empty());
+        let mut spans = vec![Span::styled(
             format!("Baseline: {branch} @ {commit}"),
             Style::default().fg(palette.info.color()),
-        ));
+        )];
+        if has_logs {
+            spans.push(Span::styled(
+                "  [logs: L]",
+                Style::default().fg(palette.accent.color()),
+            ));
+        }
+        lines.push(Line::from(spans));
     }
 
     if let Some(ref model) = detail.model_name {
