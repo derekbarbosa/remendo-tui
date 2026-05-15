@@ -176,6 +176,43 @@ impl Tui {
         Ok(())
     }
 
+    /// Temporarily suspend the TUI for an external process (e.g., editor).
+    ///
+    /// Leaves alternate screen and disables raw mode so the subprocess
+    /// can interact with the terminal normally. Call `resume()` after
+    /// the subprocess exits.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if terminal state cannot be changed.
+    pub fn suspend(&mut self) -> Result<()> {
+        Self::reset()?;
+        Ok(())
+    }
+
+    /// Resume the TUI after a `suspend()` call.
+    ///
+    /// Re-enters raw mode and alternate screen. The event handler
+    /// task is still running — it will resume delivering events.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if terminal state cannot be restored.
+    pub fn resume(&mut self) -> Result<()> {
+        terminal::enable_raw_mode()?;
+        crossterm::execute!(
+            stdout(),
+            EnterAlternateScreen,
+            EnableMouseCapture,
+            EnableFocusChange,
+            EnableBracketedPaste,
+        )?;
+        // Re-create the terminal backend for the new stdout
+        let backend = ratatui::prelude::CrosstermBackend::new(stdout());
+        self.terminal = Some(ratatui::Terminal::new(backend)?);
+        Ok(())
+    }
+
     /// Reset terminal state (used by both exit and panic hook).
     fn reset() -> io::Result<()> {
         terminal::disable_raw_mode()?;
