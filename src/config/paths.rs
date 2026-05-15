@@ -66,4 +66,30 @@ mod tests {
             paths.config_file
         );
     }
+
+    #[test]
+    fn resolve_config_under_xdg_dir() {
+        let paths = AppPaths::resolve().expect("resolve paths");
+        // On a system with a home directory, the config should be under
+        // a "remendo" subdirectory, not a bare "config.toml"
+        if dirs::config_dir().is_some() {
+            let path_str = paths.config_file.to_string_lossy();
+            assert!(
+                path_str.contains("remendo"),
+                "config path should contain 'remendo' subdir, got: {path_str}"
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_cache_under_xdg_dir() {
+        let paths = AppPaths::resolve().expect("resolve paths");
+        if dirs::cache_dir().is_some() {
+            let path_str = paths.cache_dir.to_string_lossy();
+            assert!(
+                path_str.contains("remendo"),
+                "cache path should contain 'remendo' subdir, got: {path_str}"
+            );
+        }
+    }
 }

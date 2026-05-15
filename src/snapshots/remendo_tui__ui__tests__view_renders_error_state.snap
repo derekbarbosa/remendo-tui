@@ -3,12 +3,12 @@ source: src/ui.rs
 expression: terminal.backend()
 ---
 "┌ remendo | ERROR: connection refused ─────────────────────────────────────────┐"
-"│No patchsets loaded. Configure a remote in config.toml.                       │"
+"│No remotes configured.                                                        │"
 "│                                                                              │"
-"│                                                                              │"
-"│                                                                              │"
-"│                                                                              │"
-"│                                                                              │"
+"│To get started:                                                               │"
+"│  1. cp config.example.toml ~/.config/remendo/config.toml                     │"
+"│  2. Edit the file and set your Sashiko instance URL                          │"
+"│  3. Restart remendo                                                          │"
 "│                                                                              │"
 "│                                                                              │"
 "│                                                                              │"

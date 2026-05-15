@@ -29,8 +29,18 @@ pub fn view(app: &App, frame: &mut Frame) {
 
     let block = Block::default().title(status.bold()).borders(Borders::ALL);
 
-    let content = if app.patchsets.items.is_empty() {
-        "No patchsets loaded. Configure a remote in config.toml.".to_string()
+    let content = if app.config.remotes.is_empty() {
+        "No remotes configured.\n\n\
+         To get started:\n  \
+         1. cp config.example.toml ~/.config/remendo/config.toml\n  \
+         2. Edit the file and set your Sashiko instance URL\n  \
+         3. Restart remendo"
+            .to_string()
+    } else if app.patchsets.items.is_empty() {
+        format!(
+            "Connected to '{}'. No patchsets loaded yet.",
+            app.active_remote
+        )
     } else {
         format!("{} patchsets loaded", app.patchsets.items.len())
     };
