@@ -1,0 +1,44 @@
+[package]
+name = "remendo-tui"
+version = "0.1.0"
+description = "A terminal based interface for interacting with agentic patch review mechanisms"
+authors = ["derekbarbosa <derekasobrab@gmail.com>"]
+license = "AGPL-3.0-or-later"
+edition = "2024"
+
+[dependencies]
+color-eyre = "0.6.3"
+crossterm = { version = "0.29.0", features = ["event-stream"] }
+ratatui = "0.30.0"
+dirs = "6.0"
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+tokio = { version = "1", features = ["rt", "macros", "sync", "time"] }
+tokio-util = "0.7"
+tracing = "0.1"
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+# Lint groups — TRD mandates aggressive clippy profiles
+pedantic = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+# Hard denials — these must never appear in production code
+unwrap_used = "deny"
+expect_used = "warn"
+panic = "warn"
+# Individual overrides for pedantic lints that are too noisy for this project
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

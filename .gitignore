@@ -1,0 +1,15 @@
+/target
+# Apogee lifecycle artifacts (private working state)
+apogee_artifacts/
+
+# Apogee local config (per-developer, not shared)
+.mcp.json
+.design-approved
+.apogee/
+.continue/
+.cursor/
+.opencode/
+opencode.json
+project_memories/
+spec/
+
