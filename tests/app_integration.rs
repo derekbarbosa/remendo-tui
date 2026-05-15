@@ -2,11 +2,11 @@
 
 #![allow(clippy::expect_used)]
 
-use remendo_tui::app::{App, FocusPanel, RunningState};
+use remendo_tui::app::{App, FocusPanel, RunningState, ViewMode};
 use remendo_tui::client::ApiError;
 use remendo_tui::cmd::Cmd;
 use remendo_tui::config::{Config, RemoteConfig};
-use remendo_tui::models::{MailingList, Paginated, Patchset};
+use remendo_tui::models::{MailingList, PatchId, Paginated, Patchset, PatchsetDetail};
 use remendo_tui::update::{update, Message};
 
 fn app_with_remotes(names: &[&str]) -> App {
@@ -251,4 +251,109 @@ fn focus_toggle_gates_scroll_roundtrip() {
     assert_eq!(app.focus, FocusPanel::PatchsetList);
     update(&mut app, Message::ScrollDown);
     assert_eq!(app.selected_index, 2);
+}
+
+#[test]
+fn select_returns_fetch_detail_command() {
+    let mut app = app_with_remotes(&["upstream"]);
+
+    // Load patchsets
+    let patchsets = Paginated {
+        items: vec![Patchset::fixture()],
+        total: 1,
+        page: 1,
+        per_page: 50,
+    };
+    update(&mut app, Message::PatchsetsLoaded(Ok(patchsets)));
+
+    // Press Enter (Select) — should return FetchPatchsetDetail
+    let cmd = update(&mut app, Message::Select);
+    assert!(
+        matches!(cmd, Cmd::FetchPatchsetDetail(PatchId::Numeric(1))),
+        "expected FetchPatchsetDetail(Numeric(1)), got {cmd:?}"
+    );
+}
+
+#[test]
+fn select_on_empty_list_is_noop() {
+    let mut app = app_with_remotes(&["upstream"]);
+    // No patchsets loaded
+    let cmd = update(&mut app, Message::Select);
+    assert!(
+        matches!(cmd, Cmd::None),
+        "Select on empty list should be Cmd::None"
+    );
+}
+
+#[test]
+fn select_when_sidebar_focused_is_noop() {
+    let mut app = app_with_remotes(&["upstream"]);
+
+    let patchsets = Paginated {
+        items: vec![Patchset::fixture()],
+        total: 1,
+        page: 1,
+        per_page: 50,
+    };
+    update(&mut app, Message::PatchsetsLoaded(Ok(patchsets)));
+    update(&mut app, Message::ToggleFocus); // Switch to Sidebar
+
+    let cmd = update(&mut app, Message::Select);
+    assert!(
+        matches!(cmd, Cmd::None),
+        "Select when sidebar focused should be Cmd::None"
+    );
+}
+
+#[test]
+fn full_enter_flow_select_to_detail_view() {
+    let mut app = app_with_remotes(&["upstream"]);
+
+    // Load patchsets
+    let patchsets = Paginated {
+        items: vec![Patchset::fixture()],
+        total: 1,
+        page: 1,
+        per_page: 50,
+    };
+    update(&mut app, Message::PatchsetsLoaded(Ok(patchsets)));
+    assert_eq!(app.view_mode, ViewMode::List);
+    assert!(app.selected_detail.is_none());
+
+    // Select — returns FetchPatchsetDetail
+    let cmd = update(&mut app, Message::Select);
+    assert!(matches!(cmd, Cmd::FetchPatchsetDetail(_)));
+
+    // Simulate detail response arriving
+    let detail = PatchsetDetail::fixture();
+    update(
+        &mut app,
+        Message::PatchsetDetailLoaded(Box::new(Ok(detail))),
+    );
+
+    // Verify detail view is active
+    assert_eq!(app.view_mode, ViewMode::Detail);
+    assert!(app.selected_detail.is_some());
+    let detail = app.selected_detail.as_ref().expect("detail loaded");
+    assert_eq!(detail.id, 1);
+    assert!(!detail.patches.is_empty());
+    assert!(app.error_state.is_none());
+}
+
+#[test]
+fn detail_load_error_sets_error_state() {
+    let mut app = app_with_remotes(&["upstream"]);
+
+    let err = ApiError::Network {
+        source: "connection refused".into(),
+        remote: "upstream".to_string(),
+    };
+    update(
+        &mut app,
+        Message::PatchsetDetailLoaded(Box::new(Err(err))),
+    );
+
+    assert!(app.error_state.is_some());
+    assert_eq!(app.view_mode, ViewMode::List); // stays on list
+    assert!(app.selected_detail.is_none());
 }

@@ -4,7 +4,7 @@
 //! the `RunningState` enum controlling the main event loop.
 
 use crate::config::Config;
-use crate::models::{MailingList, Paginated, Patchset};
+use crate::models::{MailingList, Paginated, Patchset, PatchsetDetail};
 
 /// Top-level application state.
 ///
@@ -32,6 +32,10 @@ pub struct App {
     pub active_remote_index: usize,
     /// Which panel currently has keyboard focus.
     pub focus: FocusPanel,
+    /// Current view mode (list vs. detail).
+    pub view_mode: ViewMode,
+    /// Loaded patchset detail for the detail view.
+    pub selected_detail: Option<PatchsetDetail>,
 }
 
 impl App {
@@ -60,6 +64,8 @@ impl App {
             terminal_height: 0,
             active_remote_index: 0,
             focus: FocusPanel::default(),
+            view_mode: ViewMode::default(),
+            selected_detail: None,
         }
     }
 
@@ -78,6 +84,16 @@ pub enum FocusPanel {
     PatchsetList,
     /// The remote/mailbox sidebar.
     Sidebar,
+}
+
+/// Which view the main pane is displaying.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum ViewMode {
+    /// Showing the patchset list table.
+    #[default]
+    List,
+    /// Showing the detail view for a selected patchset.
+    Detail,
 }
 
 /// Controls the main event loop lifecycle.

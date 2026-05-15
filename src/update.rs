@@ -5,11 +5,11 @@
 //! a mutable `App` reference and a `Message`, modifies state,
 //! and returns a `Cmd` describing any async side-effects to perform.
 
-use crate::app::{App, FocusPanel, RunningState};
+use crate::app::{App, FocusPanel, RunningState, ViewMode};
 use crate::client::ApiError;
 use crate::client::types::ListParams;
 use crate::cmd::Cmd;
-use crate::models::{MailingList, Paginated, Patchset, PatchsetDetail, ServerStats};
+use crate::models::{MailingList, PatchId, Paginated, Patchset, PatchsetDetail, ServerStats};
 
 /// Every action the application can take.
 ///
@@ -103,8 +103,8 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
         Message::ScrollDown
         | Message::ScrollUp
         | Message::HalfPageDown
-        | Message::HalfPageUp
-        | Message::Select => handle_scroll(app, &msg),
+        | Message::HalfPageUp => handle_scroll(app, &msg),
+        Message::Select => handle_select(app),
         Message::NextMailbox => {
             if app.config.remotes.is_empty() {
                 return Cmd::None;
@@ -142,10 +142,25 @@ fn handle_patchsets_loaded(app: &mut App, result: Result<Paginated<Patchset>, Ap
     Cmd::None
 }
 
+/// Handle `Message::Select` — fetch detail for the currently selected patchset.
+fn handle_select(app: &mut App) -> Cmd {
+    if app.focus != FocusPanel::PatchsetList {
+        return Cmd::None;
+    }
+    let Some(patchset) = app.patchsets.items.get(app.selected_index) else {
+        return Cmd::None;
+    };
+    Cmd::FetchPatchsetDetail(PatchId::Numeric(patchset.id))
+}
+
 /// Handle API response for patchset detail.
 fn handle_detail_loaded(app: &mut App, result: Result<PatchsetDetail, ApiError>) -> Cmd {
     match result {
-        Ok(_detail) => { /* future: store in detail view state */ }
+        Ok(detail) => {
+            app.selected_detail = Some(detail);
+            app.view_mode = ViewMode::Detail;
+            app.error_state = None;
+        }
         Err(e) => app.error_state = Some(e.to_string()),
     }
     Cmd::None
@@ -198,7 +213,6 @@ fn handle_scroll(app: &mut App, msg: &Message) -> Cmd {
             let half = usize::from(app.terminal_height / 2).max(1);
             app.selected_index = app.selected_index.saturating_sub(half);
         }
-        // Select is a no-op for now (future: open patchset detail view)
         _ => {}
     }
     Cmd::None
@@ -433,12 +447,50 @@ mod tests {
     }
 
     #[test]
-    fn select_returns_none() {
+    fn select_returns_fetch_detail() {
         let mut app = app_with_patchsets(5);
         app.selected_index = 2;
         let cmd = update(&mut app, Message::Select);
         assert_eq!(app.selected_index, 2); // unchanged
+        // Should return FetchPatchsetDetail for the selected patchset
+        assert!(matches!(cmd, Cmd::FetchPatchsetDetail(_)));
+    }
+
+    #[test]
+    fn select_empty_list_returns_none() {
+        let mut app = app_with_patchsets(0);
+        let cmd = update(&mut app, Message::Select);
         assert!(matches!(cmd, Cmd::None));
+    }
+
+    #[test]
+    fn detail_loaded_stores_detail_and_switches_view() {
+        let mut app = App::new(Config::default());
+        let detail = PatchsetDetail::fixture();
+        let cmd = update(
+            &mut app,
+            Message::PatchsetDetailLoaded(Box::new(Ok(detail))),
+        );
+        assert!(matches!(cmd, Cmd::None));
+        assert_eq!(app.view_mode, ViewMode::Detail);
+        assert!(app.selected_detail.is_some());
+        assert!(app.error_state.is_none());
+    }
+
+    #[test]
+    fn detail_loaded_error_sets_error_state() {
+        let mut app = App::new(Config::default());
+        let err = ApiError::Network {
+            source: "timeout".into(),
+            remote: "test".to_string(),
+        };
+        let cmd = update(
+            &mut app,
+            Message::PatchsetDetailLoaded(Box::new(Err(err))),
+        );
+        assert!(matches!(cmd, Cmd::None));
+        assert!(app.error_state.is_some());
+        assert!(app.selected_detail.is_none());
     }
 
     #[test]

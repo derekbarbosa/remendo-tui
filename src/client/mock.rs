@@ -22,6 +22,7 @@ pub struct MockClient {
     patchsets_response: Mutex<MockResult<Paginated<Patchset>>>,
     stats_response: Mutex<MockResult<ServerStats>>,
     lists_response: Mutex<MockResult<Vec<MailingList>>>,
+    patch_detail_response: Mutex<MockResult<PatchsetDetail>>,
 }
 
 impl MockClient {
@@ -32,6 +33,7 @@ impl MockClient {
             patchsets_response: Mutex::new(None),
             stats_response: Mutex::new(None),
             lists_response: Mutex::new(None),
+            patch_detail_response: Mutex::new(None),
         }
     }
 
@@ -52,6 +54,13 @@ impl MockClient {
     /// Set the canned response for `lists()`.
     pub fn set_lists(&self, result: Result<Vec<MailingList>, String>) {
         if let Ok(mut guard) = self.lists_response.lock() {
+            *guard = Some(result);
+        }
+    }
+
+    /// Set the canned response for `patch_detail()`.
+    pub fn set_patch_detail(&self, result: Result<PatchsetDetail, String>) {
+        if let Ok(mut guard) = self.patch_detail_response.lock() {
             *guard = Some(result);
         }
     }
@@ -98,9 +107,7 @@ impl SashikoApi for MockClient {
     }
 
     async fn patch_detail(&self, _id: &PatchId) -> Result<PatchsetDetail, ApiError> {
-        Err(ApiError::Configuration(
-            "mock: patch_detail not implemented".to_string(),
-        ))
+        Self::take_result(&self.patch_detail_response, "patch_detail")
     }
 
     async fn patchset_summary(&self, _id: &PatchId) -> Result<PatchsetDetail, ApiError> {

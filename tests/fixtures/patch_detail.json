@@ -1,0 +1,69 @@
+{
+  "id": 19555,
+  "subject": "[PATCH v2 0/4] iio: light: fix null pointer dereference",
+  "status": "Reviewed",
+  "author": "developer@example.com",
+  "date": 1778690980,
+  "message_id": "20260513-fix-null-deref@example.com",
+  "total_parts": 4,
+  "received_parts": 4,
+  "subsystems": ["LKML", "linux-iio"],
+  "baseline": {
+    "branch": "iio/testing",
+    "commit": "abc123def456",
+    "repo_url": "git://git.kernel.org/pub/scm/linux/kernel/git/jic23/iio.git"
+  },
+  "baseline_logs": null,
+  "patches": [
+    {
+      "id": 101,
+      "message_id": "20260513-patch-1@example.com",
+      "part_index": 1,
+      "subject": "[PATCH v2 1/4] iio: light: fix null deref in probe",
+      "status": "Reviewed",
+      "apply_error": null,
+      "msg_db_id": 500
+    },
+    {
+      "id": 102,
+      "message_id": "20260513-patch-2@example.com",
+      "part_index": 2,
+      "subject": "[PATCH v2 2/4] iio: light: add error handling to read_raw",
+      "status": "Reviewed",
+      "apply_error": null,
+      "msg_db_id": 501
+    }
+  ],
+  "reviews": [
+    {
+      "id": 201,
+      "patch_id": 101,
+      "status": "Reviewed",
+      "model": "gemini-3.1-pro-preview",
+      "provider": "gemini",
+      "inline_review": "LGTM. The null check is correctly placed before the dereference.",
+      "summary": "The patch correctly fixes a null pointer dereference in the probe path.",
+      "created_at": 1778699636
+    }
+  ],
+  "thread": [
+    {
+      "id": 1001,
+      "message_id": "20260513-cover@example.com",
+      "author": "developer@example.com",
+      "date": 1778690984,
+      "subject": "[PATCH v2 0/4] iio: light: fix null pointer dereference",
+      "in_reply_to": null
+    },
+    {
+      "id": 1002,
+      "message_id": "20260513-ack@example.com",
+      "author": "maintainer@kernel.org",
+      "date": 1778700000,
+      "subject": "Re: [PATCH v2 0/4] iio: light: fix null pointer dereference",
+      "in_reply_to": "20260513-cover@example.com"
+    }
+  ],
+  "model_name": "gemini-3.1-pro-preview",
+  "provider": "gemini"
+}

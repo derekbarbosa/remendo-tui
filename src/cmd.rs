@@ -7,6 +7,7 @@
 use crate::client::error::ApiError;
 use crate::client::types::ListParams;
 use crate::client::SashikoApi;
+use crate::models::PatchId;
 use crate::update::Message;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -26,6 +27,8 @@ pub enum Cmd {
     FetchLists,
     /// Fetch server stats for the active remote.
     FetchStats,
+    /// Fetch full detail for a specific patchset.
+    FetchPatchsetDetail(PatchId),
     /// Execute multiple commands concurrently.
     Batch(Vec<Cmd>),
 }
@@ -80,6 +83,20 @@ pub fn execute<S: ::std::hash::BuildHasher>(
                 });
             } else {
                 let _ = msg_tx.send(Message::StatsLoaded(Err(no_remote_error(active_remote))));
+            }
+        }
+        Cmd::FetchPatchsetDetail(id) => {
+            if let Some(client) = clients.get(active_remote) {
+                let client = Arc::clone(client);
+                let tx = msg_tx.clone();
+                tokio::spawn(async move {
+                    let result = client.patch_detail(&id).await;
+                    let _ = tx.send(Message::PatchsetDetailLoaded(Box::new(result)));
+                });
+            } else {
+                let _ = msg_tx.send(Message::PatchsetDetailLoaded(Box::new(Err(
+                    no_remote_error(active_remote),
+                ))));
             }
         }
         Cmd::Batch(cmds) => {
