@@ -121,9 +121,9 @@ fn action_to_message(action: KeyAction) -> Option<Message> {
         KeyAction::NextPage => Some(Message::NextPage),
         KeyAction::PrevPage => Some(Message::PrevPage),
         KeyAction::Search => Some(Message::SearchStart),
+        KeyAction::ViewRawLog => Some(Message::ViewRawLog),
         // Other actions will produce messages when their UI slugs land
         KeyAction::BookmarkToggle
-        | KeyAction::ViewRawLog
         | KeyAction::NextComment
         | KeyAction::PrevComment => None,
     }

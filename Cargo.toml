@@ -24,6 +24,7 @@ tokio = { version = "1", features = ["rt", "macros", "sync", "time"] }
 tokio-util = "0.7"
 tracing = "0.1"
 url = "2"
+tempfile = "3.27.0"
 
 [dev-dependencies]
 insta = { version = "1", default-features = false }

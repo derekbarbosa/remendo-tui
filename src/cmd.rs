@@ -29,6 +29,13 @@ pub enum Cmd {
     FetchStats,
     /// Fetch full detail for a specific patchset.
     FetchPatchsetDetail(PatchId),
+    /// Open a file in the configured external editor.
+    OpenEditor {
+        /// Content to write to a temp file and open.
+        content: String,
+        /// The editor command to use.
+        editor: String,
+    },
     /// Execute multiple commands concurrently.
     Batch(Vec<Cmd>),
 }
@@ -99,12 +106,51 @@ pub fn execute<S: ::std::hash::BuildHasher>(
                 ))));
             }
         }
+        Cmd::OpenEditor { content, editor } => {
+            let tx = msg_tx.clone();
+            tokio::spawn(async move {
+                let result = open_in_editor(&content, &editor).await;
+                if let Err(e) = result {
+                    tracing::error!(error = %e, "failed to open editor");
+                }
+                // Send a render message to refresh the screen after editor exits
+                let _ = tx.send(Message::Render);
+            });
+        }
         Cmd::Batch(cmds) => {
             for c in cmds {
                 execute(c, clients, active_remote, msg_tx);
             }
         }
     }
+}
+
+/// Write content to a temp file and open it in the specified editor.
+async fn open_in_editor(content: &str, editor: &str) -> Result<(), String> {
+    use std::io::Write;
+
+    let mut tmp = tempfile::Builder::new()
+        .prefix("remendo-review-")
+        .suffix(".txt")
+        .tempfile()
+        .map_err(|e| format!("failed to create temp file: {e}"))?;
+
+    tmp.write_all(content.as_bytes())
+        .map_err(|e| format!("failed to write temp file: {e}"))?;
+
+    let path = tmp.path().to_path_buf();
+    let editor = editor.to_string();
+
+    // Spawn the editor as a blocking subprocess on a thread pool
+    tokio::task::spawn_blocking(move || {
+        std::process::Command::new(&editor)
+            .arg(&path)
+            .status()
+            .map_err(|e| format!("failed to launch editor '{editor}': {e}"))
+    })
+    .await
+    .map_err(|e| format!("editor task panicked: {e}"))?
+    .map(|_| ())
 }
 
 /// Create an `ApiError` for when no client exists for a remote name.

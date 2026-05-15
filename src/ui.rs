@@ -574,9 +574,19 @@ fn detail_patches_lines<'a>(
             if let Some(rev) = review {
                 if let Some(ref summary) = rev.summary {
                     lines.push(Line::styled(
-                        format!("  Review: {summary}"),
+                        format!("  Summary: {summary}"),
                         Style::default().fg(palette.muted.color()),
                     ));
+                }
+                if let Some(ref inline) = rev.inline_review {
+                    lines.push(Line::raw(""));
+                    for review_line in inline.lines() {
+                        lines.push(Line::styled(
+                            format!("    {review_line}"),
+                            Style::default().fg(palette.foreground.color()),
+                        ));
+                    }
+                    lines.push(Line::raw(""));
                 }
             } else {
                 lines.push(Line::styled(
