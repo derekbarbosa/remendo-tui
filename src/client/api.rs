@@ -54,4 +54,7 @@ pub trait SashikoApi: Send + Sync {
 
     /// Tool usage statistics.
     async fn stats_tools(&self) -> Result<serde_json::Value, ApiError>;
+
+    /// Clear any cached responses. Default no-op; overridden by `CachingClient`.
+    fn clear_cache(&self) {}
 }

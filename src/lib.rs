@@ -9,6 +9,9 @@
 /// Application state and lifecycle.
 pub mod app;
 
+/// Persistent bookmark storage.
+pub mod bookmarks;
+
 /// Sashiko API client: trait, HTTP implementation, error types.
 pub mod client;
 

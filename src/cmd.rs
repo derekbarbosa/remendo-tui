@@ -4,12 +4,14 @@
 //! The `execute()` function spawns tokio tasks to perform them,
 //! sending results back as `Message` variants through a channel.
 
+use crate::bookmarks::BookmarkStore;
 use crate::client::error::ApiError;
 use crate::client::types::ListParams;
 use crate::client::SashikoApi;
 use crate::models::PatchId;
 use crate::update::Message;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -36,6 +38,15 @@ pub enum Cmd {
         /// The editor command to use.
         editor: String,
     },
+    /// Persist bookmarks to disk.
+    PersistBookmarks {
+        /// The bookmark store to save.
+        bookmarks: BookmarkStore,
+        /// Path to the bookmarks file.
+        path: PathBuf,
+    },
+    /// Clear the API response cache, then execute a batch.
+    ClearCacheAndBatch(Vec<Cmd>),
     /// Execute multiple commands concurrently.
     Batch(Vec<Cmd>),
 }
@@ -127,6 +138,23 @@ pub fn execute<S: ::std::hash::BuildHasher>(
                 // Send a render message to refresh the screen after editor exits
                 let _ = tx.send(Message::Render);
             });
+        }
+        Cmd::PersistBookmarks { bookmarks, path } => {
+            tracing::debug!("cmd: persist bookmarks");
+            let tx = msg_tx.clone();
+            tokio::task::spawn_blocking(move || {
+                let result = bookmarks.save(&path);
+                let _ = tx.send(Message::BookmarksPersisted(result));
+            });
+        }
+        Cmd::ClearCacheAndBatch(cmds) => {
+            if let Some(client) = clients.get(active_remote) {
+                client.clear_cache();
+                tracing::debug!(remote = active_remote, "cmd: cache cleared");
+            }
+            for c in cmds {
+                execute(c, clients, active_remote, msg_tx);
+            }
         }
         Cmd::Batch(cmds) => {
             for c in cmds {

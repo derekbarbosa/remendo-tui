@@ -74,6 +74,15 @@ async fn main() -> Result<()> {
 
     let mut app = remendo_tui::app::App::new(config);
 
+    // Load bookmarks from state directory
+    let state_dir = dirs::state_dir()
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
+        .join("remendo");
+    let bookmarks_path = state_dir.join("bookmarks.json");
+    app.bookmarks = remendo_tui::bookmarks::BookmarkStore::load(&bookmarks_path);
+    app.bookmarks_path = bookmarks_path;
+    tracing::info!(count = app.bookmarks.len(), "bookmarks loaded");
+
     // Main event loop: dual-channel select over terminal events
     // and async API results.
     loop {

@@ -71,6 +71,14 @@ pub enum Message {
     SearchCancel,
     /// Open the raw review log in the configured editor.
     ViewRawLog,
+    /// Toggle bookmark on the currently selected patchset.
+    BookmarkToggle,
+    /// Bookmarks were persisted to disk.
+    BookmarksPersisted(Result<(), String>),
+    /// Jump to the next comment in the detail view.
+    NextComment,
+    /// Jump to the previous comment in the detail view.
+    PrevComment,
 }
 
 /// Apply a message to the application state and return any
@@ -107,7 +115,7 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
             Cmd::FetchPatchsets(app.list_params.clone()),
             Cmd::FetchStats,
         ]),
-        Message::Refresh => Cmd::Batch(vec![
+        Message::Refresh => Cmd::ClearCacheAndBatch(vec![
             Cmd::FetchPatchsets(app.list_params.clone()),
             Cmd::FetchLists,
             Cmd::FetchStats,
@@ -157,6 +165,8 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
                 app.view_mode = ViewMode::List;
                 app.selected_detail = None;
                 app.detail_scroll_offset = 0;
+                app.comment_positions.clear();
+                app.current_comment_index = None;
             }
             Cmd::None
         }
@@ -164,30 +174,21 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
             app.show_help = !app.show_help;
             Cmd::None
         }
-        Message::NextPage => {
-            let total_pages = app.patchsets.total_pages();
-            if total_pages > 0 && app.list_params.page < total_pages {
-                app.list_params.page += 1;
-                app.selected_index = 0;
-                Cmd::FetchPatchsets(app.list_params.clone())
-            } else {
-                Cmd::None
-            }
-        }
-        Message::PrevPage => {
-            if app.list_params.page > 1 {
-                app.list_params.page -= 1;
-                app.selected_index = 0;
-                Cmd::FetchPatchsets(app.list_params.clone())
-            } else {
-                Cmd::None
-            }
-        }
+        Message::NextPage | Message::PrevPage => handle_page_nav(app, &msg),
         Message::SearchStart
         | Message::SearchInput(_)
         | Message::SearchSubmit
         | Message::SearchCancel => handle_search(app, &msg),
         Message::ViewRawLog => handle_view_raw_log(app),
+        Message::BookmarkToggle => handle_bookmark_toggle(app),
+        Message::BookmarksPersisted(result) => {
+            if let Err(ref e) = result {
+                tracing::error!(error = %e, "bookmark persist failed");
+            }
+            Cmd::None
+        }
+        Message::NextComment => handle_comment_nav(app, true),
+        Message::PrevComment => handle_comment_nav(app, false),
     }
 }
 
@@ -217,11 +218,15 @@ fn log_message(msg: &Message, app: &App) {
             tracing::trace!("scroll");
         }
         Message::SearchInput(_) => tracing::trace!("search input"),
+        Message::BookmarkToggle => tracing::debug!("bookmark toggle"),
+        Message::NextComment => tracing::debug!("next comment"),
+        Message::PrevComment => tracing::debug!("prev comment"),
         // API results logged in their handlers; Quit logged in update()
         Message::PatchsetsLoaded(_)
         | Message::PatchsetDetailLoaded(_)
         | Message::StatsLoaded(_)
         | Message::ListsLoaded(_)
+        | Message::BookmarksPersisted(_)
         | Message::Quit => {}
     }
 }
@@ -265,6 +270,162 @@ fn handle_view_raw_log(app: &App) -> Cmd {
         content: log,
         editor,
     }
+}
+
+/// Handle page navigation (`NextPage` / `PrevPage`).
+fn handle_page_nav(app: &mut App, msg: &Message) -> Cmd {
+    match *msg {
+        Message::NextPage => {
+            let total_pages = app.patchsets.total_pages();
+            if total_pages > 0 && app.list_params.page < total_pages {
+                app.list_params.page += 1;
+                app.selected_index = 0;
+                Cmd::FetchPatchsets(app.list_params.clone())
+            } else {
+                Cmd::None
+            }
+        }
+        Message::PrevPage => {
+            if app.list_params.page > 1 {
+                app.list_params.page -= 1;
+                app.selected_index = 0;
+                Cmd::FetchPatchsets(app.list_params.clone())
+            } else {
+                Cmd::None
+            }
+        }
+        _ => Cmd::None,
+    }
+}
+
+/// Handle `Message::BookmarkToggle` — toggle bookmark on the selected patchset.
+fn handle_bookmark_toggle(app: &mut App) -> Cmd {
+    if app.view_mode != ViewMode::List || app.focus != FocusPanel::PatchsetList {
+        return Cmd::None;
+    }
+    let Some(patchset) = app.patchsets.items.get(app.selected_index) else {
+        return Cmd::None;
+    };
+    let id = patchset.id;
+    let is_bookmarked = app.bookmarks.toggle(&app.active_remote, id);
+    tracing::debug!(
+        remote = %app.active_remote,
+        patchset_id = id,
+        bookmarked = is_bookmarked,
+        "bookmark toggle"
+    );
+    Cmd::PersistBookmarks {
+        bookmarks: app.bookmarks.clone(),
+        path: app.bookmarks_path.clone(),
+    }
+}
+
+/// Compute line positions of comment boundaries in a patchset detail.
+///
+/// Mirrors the line-counting logic of `detail_header_lines`, `detail_patches_lines`,
+/// and `detail_thread_lines` without building styled Line objects.
+fn compute_comment_positions(detail: &PatchsetDetail) -> Vec<usize> {
+    let mut positions = Vec::new();
+    let mut line = 0;
+
+    // Header: status+author+date (1 line)
+    line += 1;
+    // Parts + subsystems (conditional)
+    if detail.total_parts.is_some() && detail.received_parts.is_some() {
+        line += 1;
+    }
+    // Baseline (conditional)
+    if detail.baseline.is_some() {
+        line += 1;
+    }
+    // Model/provider (conditional)
+    if detail.model_name.is_some() {
+        line += 1;
+    }
+    // Blank line
+    line += 1;
+
+    // Patches section header
+    line += 1;
+
+    if detail.patches.is_empty() {
+        line += 1; // "(no patches)"
+    } else {
+        for patch in &detail.patches {
+            positions.push(line); // patch row is a comment position
+            line += 1; // patch row
+
+            let review = detail.reviews.iter().find(|r| r.patch_id == patch.id);
+            if let Some(rev) = review {
+                if rev.summary.is_some() {
+                    line += 1; // "  Summary: ..."
+                }
+                if let Some(ref inline) = rev.inline_review {
+                    line += 1; // blank line before inline
+                    line += inline.lines().count(); // inline review lines
+                    line += 1; // blank line after inline
+                }
+            } else {
+                line += 1; // "(no review)"
+            }
+        }
+    }
+
+    // Blank line between sections
+    line += 1;
+
+    // Thread section header
+    line += 1;
+
+    if detail.thread.is_empty() {
+        // "(no messages)" — no comment position
+    } else {
+        for _msg in &detail.thread {
+            positions.push(line); // thread message is a comment position
+            line += 2; // author+date line + subject line
+        }
+    }
+
+    positions
+}
+
+/// Handle comment navigation (n/N) in the detail view.
+fn handle_comment_nav(app: &mut App, forward: bool) -> Cmd {
+    if app.view_mode != ViewMode::Detail || app.comment_positions.is_empty() {
+        return Cmd::None;
+    }
+
+    let positions = &app.comment_positions;
+    let offset = app.detail_scroll_offset;
+
+    let target = match app.current_comment_index {
+        Some(i) => {
+            if forward {
+                (i + 1).min(positions.len() - 1)
+            } else {
+                i.saturating_sub(1)
+            }
+        }
+        None => {
+            if forward {
+                // Find first position >= current offset
+                positions
+                    .iter()
+                    .position(|&p| p >= offset)
+                    .unwrap_or(positions.len() - 1)
+            } else {
+                // Find last position < current offset
+                positions
+                    .iter()
+                    .rposition(|&p| p < offset)
+                    .unwrap_or(0)
+            }
+        }
+    };
+
+    app.detail_scroll_offset = positions[target];
+    app.current_comment_index = Some(target);
+    Cmd::None
 }
 
 /// Handle search lifecycle messages.
@@ -341,6 +502,8 @@ fn handle_select(app: &mut App) -> Cmd {
                 return Cmd::None;
             };
             app.detail_scroll_offset = 0;
+            app.comment_positions.clear();
+            app.current_comment_index = None;
             Cmd::FetchPatchsetDetail(PatchId::Numeric(patchset.id))
         }
         FocusPanel::Sidebar => handle_sidebar_select(app),
@@ -357,6 +520,8 @@ fn handle_detail_loaded(app: &mut App, result: Result<PatchsetDetail, ApiError>)
                 reviews = detail.reviews.len(),
                 "patchset detail loaded"
             );
+            app.comment_positions = compute_comment_positions(&detail);
+            app.current_comment_index = None;
             app.selected_detail = Some(detail);
             app.view_mode = ViewMode::Detail;
             app.error_state = None;
@@ -424,6 +589,7 @@ fn handle_scroll(app: &mut App, msg: &Message) -> Cmd {
             }
             _ => {}
         }
+        app.current_comment_index = None; // free scroll clears comment anchor
         return Cmd::None;
     }
     // List view: scroll the selected index
@@ -538,6 +704,8 @@ fn switch_remote(app: &mut App, new_index: usize) -> Cmd {
     app.search_cursor = 0;
     app.sidebar_section = SidebarSection::Remotes;
     app.sidebar_list_index = 0;
+    app.comment_positions.clear();
+    app.current_comment_index = None;
     Cmd::Batch(vec![
         Cmd::FetchPatchsets(app.list_params.clone()),
         Cmd::FetchLists,
@@ -575,17 +743,17 @@ mod tests {
     }
 
     #[test]
-    fn refresh_returns_batch_with_three_fetches() {
+    fn refresh_clears_cache_and_fetches() {
         let mut app = App::new(Config::default());
         let cmd = update(&mut app, Message::Refresh);
         match cmd {
-            Cmd::Batch(cmds) => {
+            Cmd::ClearCacheAndBatch(cmds) => {
                 assert_eq!(cmds.len(), 3);
                 assert!(matches!(cmds[0], Cmd::FetchPatchsets(_)));
                 assert!(matches!(cmds[1], Cmd::FetchLists));
                 assert!(matches!(cmds[2], Cmd::FetchStats));
             }
-            other => panic!("expected Cmd::Batch, got {other:?}"),
+            other => panic!("expected Cmd::ClearCacheAndBatch, got {other:?}"),
         }
     }
 
