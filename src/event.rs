@@ -56,8 +56,8 @@ pub fn handle_event(app: &App, event: &Event) -> Option<Message> {
                 .action_for(&combo)
                 .and_then(action_to_message)
         }
-        Event::Init
-        | Event::Error
+        Event::Init => Some(Message::Init),
+        Event::Error
         | Event::Key(_)
         | Event::Mouse(_)
         | Event::FocusGained
@@ -72,6 +72,7 @@ pub fn handle_event(app: &App, event: &Event) -> Option<Message> {
 fn action_to_message(action: KeyAction) -> Option<Message> {
     match action {
         KeyAction::Quit => Some(Message::Quit),
+        KeyAction::Refresh => Some(Message::Refresh),
         // Other actions will produce messages when their UI slugs land
         KeyAction::ScrollDown
         | KeyAction::ScrollUp
@@ -81,7 +82,6 @@ fn action_to_message(action: KeyAction) -> Option<Message> {
         | KeyAction::PrevMailbox
         | KeyAction::OpenThread
         | KeyAction::CloseThread
-        | KeyAction::Refresh
         | KeyAction::Search
         | KeyAction::BookmarkToggle
         | KeyAction::ViewRawLog
@@ -170,5 +170,21 @@ mod tests {
         let app = App::new(Config::default());
         assert!(handle_event(&app, &Event::FocusGained).is_none());
         assert!(handle_event(&app, &Event::FocusLost).is_none());
+    }
+
+    #[test]
+    fn handle_event_init_produces_message_init() {
+        let app = App::new(Config::default());
+        let msg = handle_event(&app, &Event::Init);
+        assert!(matches!(msg, Some(Message::Init)));
+    }
+
+    #[test]
+    fn handle_event_refresh_via_keybinding() {
+        let app = App::new(Config::default());
+        // Ctrl-r is the default Refresh keybinding
+        let event = make_key_event(KeyCode::Char('r'), KeyModifiers::CONTROL);
+        let msg = handle_event(&app, &event);
+        assert!(matches!(msg, Some(Message::Refresh)));
     }
 }

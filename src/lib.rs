@@ -12,6 +12,9 @@ pub mod app;
 /// Sashiko API client: trait, HTTP implementation, error types.
 pub mod client;
 
+/// TEA command/effect system for async side-effects.
+pub mod cmd;
+
 /// Application configuration: remotes, keybindings, theme, paths.
 pub mod config;
 

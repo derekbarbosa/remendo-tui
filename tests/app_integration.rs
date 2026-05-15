@@ -4,9 +4,10 @@
 
 use remendo_tui::app::{App, RunningState};
 use remendo_tui::client::ApiError;
+use remendo_tui::cmd::Cmd;
 use remendo_tui::config::Config;
 use remendo_tui::models::{MailingList, Paginated, Patchset};
-use remendo_tui::update::{Message, update};
+use remendo_tui::update::{update, Message};
 
 #[test]
 fn quit_flow() {
@@ -85,4 +86,24 @@ fn error_clears_on_successful_load() {
     };
     update(&mut app, Message::PatchsetsLoaded(Ok(patchsets)));
     assert!(app.error_state.is_none());
+}
+
+#[test]
+fn init_returns_fetch_commands() {
+    let mut app = App::new(Config::default());
+    let cmd = update(&mut app, Message::Init);
+    assert!(
+        matches!(cmd, Cmd::Batch(ref cmds) if cmds.len() == 3),
+        "Init should return Batch with 3 commands"
+    );
+}
+
+#[test]
+fn refresh_returns_fetch_commands() {
+    let mut app = App::new(Config::default());
+    let cmd = update(&mut app, Message::Refresh);
+    assert!(
+        matches!(cmd, Cmd::Batch(ref cmds) if cmds.len() == 2),
+        "Refresh should return Batch with 2 commands"
+    );
 }
