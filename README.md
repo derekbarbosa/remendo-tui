@@ -112,18 +112,45 @@ if the application encounters an error.
 - **[Configuration Guide](docs/CONFIGURATION.md)** -- complete reference for
   `config.toml`, keybindings, themes, and all options
 
+## Debug Logging
+
+`remendo` writes debug logs to `~/.local/state/remendo/remendo.log` (or
+`$XDG_STATE_HOME/remendo/remendo.log`). Control the log level with the
+`REMENDO_LOG` environment variable:
+
+```sh
+# Default (info-level for remendo, nothing from deps)
+remendo-tui
+
+# Debug mode (all messages and commands logged)
+REMENDO_LOG=debug remendo-tui
+
+# Full trace (every tick, render, scroll event)
+REMENDO_LOG=remendo_tui=trace remendo-tui
+
+# Debug with dependency logs
+REMENDO_LOG=remendo_tui=debug,reqwest=debug remendo-tui
+```
+
+Falls back to `RUST_LOG` if `REMENDO_LOG` is not set.
+
 ## Project Status
 
-`remendo` is in early development. The foundation infrastructure is in place:
+`remendo` is under active development. The interactive TUI is functional:
 
 - Domain models for all Sashiko API entities
 - TOML configuration with XDG paths, keybindings, and theming
 - Async event loop (Elm/TEA architecture) with tokio
-- HTTP client for all 12 read-only Sashiko API endpoints
-- 111+ unit and integration tests
+- HTTP client for Sashiko read-only API endpoints
+- Remote sidebar with mailing list filtering
+- Scrollable patchset list with pagination (`]`/`[`)
+- Patchset detail view with inline AI reviews
+- Vim-style search (`/`) with server-side filtering
+- Help overlay (`?`) with all keybinding mappings
+- File-based debug logging via `REMENDO_LOG`
+- 183+ unit and integration tests
 
-Upcoming work includes the full navigation UI (sidebar, patchset list, detail
-views, thread viewer) and caching layer.
+Upcoming work includes caching layer, bookmarks, and comment navigation.
 
 ## Requirements
 
