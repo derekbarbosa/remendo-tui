@@ -5,7 +5,7 @@
 //! a mutable `App` reference and a `Message`, modifies state,
 //! and returns a `Cmd` describing any async side-effects to perform.
 
-use crate::app::{App, FocusPanel, RunningState, ViewMode};
+use crate::app::{App, FocusPanel, InputMode, RunningState, SidebarSection, ViewMode};
 use crate::client::ApiError;
 use crate::client::types::ListParams;
 use crate::cmd::Cmd;
@@ -57,6 +57,18 @@ pub enum Message {
     Back,
     /// Toggle the help overlay visibility.
     ToggleHelp,
+    /// Navigate to the next page of patchsets.
+    NextPage,
+    /// Navigate to the previous page of patchsets.
+    PrevPage,
+    /// Enter search input mode.
+    SearchStart,
+    /// Insert a character into the search buffer.
+    SearchInput(char),
+    /// Submit the search query (Enter).
+    SearchSubmit,
+    /// Cancel search mode (Esc).
+    SearchCancel,
 }
 
 /// Apply a message to the application state and return any
@@ -88,11 +100,11 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
         }
         Message::Init => Cmd::Batch(vec![
             Cmd::FetchLists,
-            Cmd::FetchPatchsets(ListParams::default()),
+            Cmd::FetchPatchsets(app.list_params.clone()),
             Cmd::FetchStats,
         ]),
         Message::Refresh => Cmd::Batch(vec![
-            Cmd::FetchPatchsets(ListParams::default()),
+            Cmd::FetchPatchsets(app.list_params.clone()),
             Cmd::FetchLists,
             Cmd::FetchStats,
         ]),
@@ -148,6 +160,74 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
             app.show_help = !app.show_help;
             Cmd::None
         }
+        Message::NextPage => {
+            let total_pages = app.patchsets.total_pages();
+            if total_pages > 0 && app.list_params.page < total_pages {
+                app.list_params.page += 1;
+                app.selected_index = 0;
+                Cmd::FetchPatchsets(app.list_params.clone())
+            } else {
+                Cmd::None
+            }
+        }
+        Message::PrevPage => {
+            if app.list_params.page > 1 {
+                app.list_params.page -= 1;
+                app.selected_index = 0;
+                Cmd::FetchPatchsets(app.list_params.clone())
+            } else {
+                Cmd::None
+            }
+        }
+        Message::SearchStart
+        | Message::SearchInput(_)
+        | Message::SearchSubmit
+        | Message::SearchCancel => handle_search(app, &msg),
+    }
+}
+
+/// Handle search lifecycle messages.
+fn handle_search(app: &mut App, msg: &Message) -> Cmd {
+    match *msg {
+        Message::SearchStart => {
+            app.input_mode = InputMode::Search;
+            app.search_buffer = app.list_params.search.clone().unwrap_or_default();
+            app.search_cursor = app.search_buffer.len();
+            Cmd::None
+        }
+        Message::SearchInput(c) => {
+            if c == '\x08' {
+                // Backspace sentinel
+                if app.search_cursor > 0 {
+                    app.search_cursor -= 1;
+                    app.search_buffer.remove(app.search_cursor);
+                }
+            } else {
+                app.search_buffer.insert(app.search_cursor, c);
+                app.search_cursor += c.len_utf8();
+            }
+            Cmd::None
+        }
+        Message::SearchSubmit => {
+            app.input_mode = InputMode::Normal;
+            app.list_params.search = if app.search_buffer.is_empty() {
+                None
+            } else {
+                Some(app.search_buffer.clone())
+            };
+            app.list_params.page = 1;
+            app.selected_index = 0;
+            app.search_buffer.clear();
+            app.search_cursor = 0;
+            Cmd::FetchPatchsets(app.list_params.clone())
+        }
+        Message::SearchCancel => {
+            app.input_mode = InputMode::Normal;
+            app.search_buffer.clear();
+            app.search_cursor = 0;
+            Cmd::None
+        }
+        _ => Cmd::None,
     }
 }
 
@@ -163,16 +243,18 @@ fn handle_patchsets_loaded(app: &mut App, result: Result<Paginated<Patchset>, Ap
     Cmd::None
 }
 
-/// Handle `Message::Select` — fetch detail for the currently selected patchset.
+/// Handle `Message::Select` — dispatch based on focus panel.
 fn handle_select(app: &mut App) -> Cmd {
-    if app.focus != FocusPanel::PatchsetList {
-        return Cmd::None;
+    match app.focus {
+        FocusPanel::PatchsetList => {
+            let Some(patchset) = app.patchsets.items.get(app.selected_index) else {
+                return Cmd::None;
+            };
+            app.detail_scroll_offset = 0;
+            Cmd::FetchPatchsetDetail(PatchId::Numeric(patchset.id))
+        }
+        FocusPanel::Sidebar => handle_sidebar_select(app),
     }
-    let Some(patchset) = app.patchsets.items.get(app.selected_index) else {
-        return Cmd::None;
-    };
-    app.detail_scroll_offset = 0;
-    Cmd::FetchPatchsetDetail(PatchId::Numeric(patchset.id))
 }
 
 /// Handle API response for patchset detail.
@@ -212,10 +294,11 @@ fn handle_lists_loaded(app: &mut App, result: Result<Vec<MailingList>, ApiError>
     Cmd::None
 }
 
-/// Handle scroll/selection messages, gated by focus panel.
+/// Handle scroll/selection messages, routed by focus panel.
 fn handle_scroll(app: &mut App, msg: &Message) -> Cmd {
-    if app.focus != FocusPanel::PatchsetList {
-        return Cmd::None;
+    match app.focus {
+        FocusPanel::PatchsetList => {}
+        FocusPanel::Sidebar => return handle_sidebar_scroll(app, msg),
     }
     // Detail view: scroll the detail content
     if app.view_mode == ViewMode::Detail {
@@ -263,6 +346,69 @@ fn handle_scroll(app: &mut App, msg: &Message) -> Cmd {
     Cmd::None
 }
 
+/// Handle scroll within the sidebar — navigate between remotes and mailing lists.
+fn handle_sidebar_scroll(app: &mut App, msg: &Message) -> Cmd {
+    let is_down = matches!(*msg, Message::ScrollDown | Message::HalfPageDown);
+    let is_up = matches!(*msg, Message::ScrollUp | Message::HalfPageUp);
+
+    match app.sidebar_section {
+        SidebarSection::Remotes => {
+            if is_down {
+                if app.active_remote_index + 1 < app.config.remotes.len() {
+                    app.active_remote_index += 1;
+                } else if !app.mailing_lists.is_empty() {
+                    // Transition to mailing lists
+                    app.sidebar_section = SidebarSection::MailingLists;
+                    app.sidebar_list_index = 0;
+                }
+            } else if is_up {
+                app.active_remote_index = app.active_remote_index.saturating_sub(1);
+            }
+        }
+        SidebarSection::MailingLists => {
+            // +1 for the "All" entry at index 0
+            let max_index = app.mailing_lists.len(); // 0=All, 1..len=lists
+            if is_down {
+                if app.sidebar_list_index < max_index {
+                    app.sidebar_list_index += 1;
+                }
+            } else if is_up {
+                if app.sidebar_list_index > 0 {
+                    app.sidebar_list_index -= 1;
+                } else {
+                    // Transition back to remotes
+                    app.sidebar_section = SidebarSection::Remotes;
+                    app.active_remote_index =
+                        app.config.remotes.len().saturating_sub(1);
+                }
+            }
+        }
+    }
+    Cmd::None
+}
+
+/// Handle Enter in the sidebar — switch remote or apply mailing list filter.
+fn handle_sidebar_select(app: &mut App) -> Cmd {
+    match app.sidebar_section {
+        SidebarSection::Remotes => switch_remote(app, app.active_remote_index),
+        SidebarSection::MailingLists => {
+            if app.sidebar_list_index == 0 {
+                // "All" — clear filter
+                app.list_params.mailing_list = None;
+            } else {
+                let idx = app.sidebar_list_index - 1;
+                if let Some(list) = app.mailing_lists.get(idx) {
+                    app.list_params.mailing_list =
+                        Some(list.group.clone().unwrap_or_else(|| list.name.clone()));
+                }
+            }
+            app.list_params.page = 1;
+            app.selected_index = 0;
+            Cmd::FetchPatchsets(app.list_params.clone())
+        }
+    }
+}
+
 /// Switch the active remote to the given index, clear patchset data,
 /// and return a fetch command batch.
 fn switch_remote(app: &mut App, new_index: usize) -> Cmd {
@@ -279,8 +425,14 @@ fn switch_remote(app: &mut App, new_index: usize) -> Cmd {
     app.view_mode = ViewMode::List;
     app.selected_detail = None;
     app.detail_scroll_offset = 0;
+    app.list_params = ListParams::default();
+    app.input_mode = InputMode::Normal;
+    app.search_buffer.clear();
+    app.search_cursor = 0;
+    app.sidebar_section = SidebarSection::Remotes;
+    app.sidebar_list_index = 0;
     Cmd::Batch(vec![
-        Cmd::FetchPatchsets(ListParams::default()),
+        Cmd::FetchPatchsets(app.list_params.clone()),
         Cmd::FetchLists,
         Cmd::FetchStats,
     ])

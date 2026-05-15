@@ -4,7 +4,7 @@
 //! This module contains no state mutation — it is a pure
 //! function of `App` → visual output.
 
-use crate::app::{App, FocusPanel, ViewMode};
+use crate::app::{App, FocusPanel, InputMode, ViewMode};
 use crate::config::theme::ColorPalette;
 use crate::models::{FindingCounts, PatchsetStatus};
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -73,68 +73,142 @@ fn panel_border_color(
 
 /// Render the remote/mailbox sidebar in the given area.
 fn render_sidebar(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, palette: &ColorPalette) {
-    let border_color = panel_border_color(app.focus, FocusPanel::Sidebar, palette);
+    use crate::app::SidebarSection;
 
-    let title = format!(" Remotes ({}) ", app.config.remotes.len());
-    let block = Block::default()
-        .title(title.bold())
+    let remote_count = app.config.remotes.len();
+    let remote_height = u16::try_from(remote_count + 2).unwrap_or(5).min(area.height / 2);
+
+    let sidebar_chunks = Layout::vertical([
+        Constraint::Length(remote_height),
+        Constraint::Min(3),
+    ])
+    .split(area);
+
+    let highlight_style = Style::default()
+        .bg(palette.selected_bg.color())
+        .fg(palette.selected_fg.color());
+
+    // --- Remotes section ---
+    let remotes_focused = app.focus == FocusPanel::Sidebar
+        && app.sidebar_section == SidebarSection::Remotes;
+    let remotes_border = if remotes_focused {
+        palette.accent.color()
+    } else {
+        palette.border.color()
+    };
+    let remotes_block = Block::default()
+        .title(format!(" Remotes ({remote_count}) ").bold())
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(border_color));
+        .border_style(Style::default().fg(remotes_border));
 
-    let items: Vec<ListItem> = app
+    let remote_items: Vec<ListItem> = app
         .config
         .remotes
         .iter()
         .map(|r| ListItem::new(r.name.as_str()))
         .collect();
 
-    let list = List::new(items)
-        .block(block)
-        .highlight_style(
-            Style::default()
-                .bg(palette.selected_bg.color())
-                .fg(palette.selected_fg.color()),
-        );
+    let remotes_list = List::new(remote_items)
+        .block(remotes_block)
+        .highlight_style(highlight_style);
 
-    let mut list_state = ListState::default();
-    list_state.select(Some(app.active_remote_index));
+    let mut remotes_state = ListState::default();
+    if remotes_focused {
+        remotes_state.select(Some(app.active_remote_index));
+    }
+    frame.render_stateful_widget(remotes_list, sidebar_chunks[0], &mut remotes_state);
 
-    frame.render_stateful_widget(list, area, &mut list_state);
+    // --- Mailing lists section ---
+    let lists_focused = app.focus == FocusPanel::Sidebar
+        && app.sidebar_section == SidebarSection::MailingLists;
+    let lists_border = if lists_focused {
+        palette.accent.color()
+    } else {
+        palette.border.color()
+    };
+    let list_count = app.mailing_lists.len();
+    let lists_block = Block::default()
+        .title(format!(" Lists ({list_count}) ").bold())
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(lists_border));
+
+    if app.mailing_lists.is_empty() {
+        let placeholder = Paragraph::new("(none)")
+            .style(Style::default().fg(palette.muted.color()))
+            .block(lists_block);
+        frame.render_widget(placeholder, sidebar_chunks[1]);
+    } else {
+        let mut list_items: Vec<ListItem> = vec![ListItem::new("All")];
+        for ml in &app.mailing_lists {
+            list_items.push(ListItem::new(ml.name.as_str()));
+        }
+
+        let ml_list = List::new(list_items)
+            .block(lists_block)
+            .highlight_style(highlight_style);
+
+        let mut ml_state = ListState::default();
+        if lists_focused {
+            ml_state.select(Some(app.sidebar_list_index));
+        }
+        frame.render_stateful_widget(ml_list, sidebar_chunks[1], &mut ml_state);
+    }
+}
+
+/// Build the title bar status string for the main pane.
+fn build_main_title(app: &App) -> String {
+    if let Some(ref err) = app.error_state {
+        return format!(" remendo | ERROR: {err} ");
+    }
+    let remote = if app.active_remote.is_empty() {
+        "(no remote)"
+    } else {
+        &app.active_remote
+    };
+    let total_pages = app.patchsets.total_pages();
+    let page_indicator = if total_pages > 1 {
+        format!(" | page {}/{total_pages}", app.patchsets.page)
+    } else {
+        String::new()
+    };
+    let search_indicator = app
+        .list_params
+        .search
+        .as_ref()
+        .map_or(String::new(), |q| format!(" | q: \"{q}\""));
+    let list_indicator = app
+        .list_params
+        .mailing_list
+        .as_ref()
+        .map_or(String::new(), |l| format!(" | list: {l}"));
+    if let Some(ref stats) = app.stats {
+        format!(
+            " remendo | {} | v{} | {} pending | {} reviewing | {} patchsets{page_indicator}{search_indicator}{list_indicator} ",
+            remote, stats.version, stats.pending, stats.reviewing, app.patchsets.total
+        )
+    } else {
+        format!(" remendo | {} | {} patchsets{page_indicator}{search_indicator}{list_indicator} ", remote, app.patchsets.total)
+    }
 }
 
 /// Render the main patchset pane (table or placeholder) in the given area.
 fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, palette: &ColorPalette) {
     let border_color = panel_border_color(app.focus, FocusPanel::PatchsetList, palette);
-
-    let status = if let Some(ref err) = app.error_state {
-        format!(" remendo | ERROR: {err} ")
-    } else {
-        let remote = if app.active_remote.is_empty() {
-            "(no remote)"
-        } else {
-            &app.active_remote
-        };
-        if let Some(ref stats) = app.stats {
-            format!(
-                " remendo | {} | v{} | {} pending | {} reviewing | {} patchsets ",
-                remote, stats.version, stats.pending, stats.reviewing, app.patchsets.total
-            )
-        } else {
-            format!(" remendo | {} | {} patchsets ", remote, app.patchsets.total)
-        }
-    };
+    let status = build_main_title(app);
 
     let block = Block::default()
         .title(status.bold())
         .borders(Borders::ALL)
         .border_style(Style::default().fg(border_color));
 
-    // Empty list — show loading or error placeholder
+    // Empty list — show loading, error, or no-results placeholder
     if app.patchsets.items.is_empty() {
         let text = if app.error_state.is_some() {
-            "Error loading patchsets. Press Ctrl-r to retry."
+            "Error loading patchsets. Press Ctrl-r to retry.".to_string()
+        } else if let Some(ref q) = app.list_params.search {
+            format!("No results for \"{q}\"")
         } else {
-            "Loading..."
+            "Loading...".to_string()
         };
         let paragraph = Paragraph::new(text).block(block);
         frame.render_widget(paragraph, area);
@@ -211,6 +285,26 @@ fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, p
     table_state.select(Some(app.selected_index));
 
     frame.render_stateful_widget(table, area, &mut table_state);
+
+    // Search bar at the bottom of the main pane
+    if app.input_mode == InputMode::Search {
+        let search_area = Rect::new(
+            area.x + 1,
+            area.y + area.height.saturating_sub(2),
+            area.width.saturating_sub(2),
+            1,
+        );
+        let search_text = format!("/{}", app.search_buffer);
+        frame.render_widget(
+            Paragraph::new(search_text).style(Style::default().fg(palette.accent.color())),
+            search_area,
+        );
+        #[allow(clippy::cast_possible_truncation)]
+        frame.set_cursor_position((
+            search_area.x + 1 + app.search_cursor as u16,
+            search_area.y,
+        ));
+    }
 }
 
 /// Map a `PatchsetStatus` to a foreground color style.

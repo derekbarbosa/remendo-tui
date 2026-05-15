@@ -37,6 +37,17 @@ pub struct Paginated<T> {
     pub per_page: u32,
 }
 
+impl<T> Paginated<T> {
+    /// Total number of pages derived from `total` and `per_page`.
+    #[must_use]
+    pub fn total_pages(&self) -> u32 {
+        if self.per_page == 0 {
+            return 1;
+        }
+        self.total.div_ceil(self.per_page)
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
