@@ -53,6 +53,10 @@ pub enum Message {
     PrevMailbox,
     /// Toggle focus between sidebar and main pane.
     ToggleFocus,
+    /// Navigate back: dismiss overlay, or return from detail to list.
+    Back,
+    /// Toggle the help overlay visibility.
+    ToggleHelp,
 }
 
 /// Apply a message to the application state and return any
@@ -90,6 +94,7 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
         Message::Refresh => Cmd::Batch(vec![
             Cmd::FetchPatchsets(ListParams::default()),
             Cmd::FetchLists,
+            Cmd::FetchStats,
         ]),
         Message::Tick | Message::Render => Cmd::None,
         Message::Resize(_w, h) => {
@@ -127,6 +132,22 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
             };
             Cmd::None
         }
+        Message::Back => {
+            if app.show_help {
+                app.show_help = false;
+                return Cmd::None;
+            }
+            if app.view_mode == ViewMode::Detail {
+                app.view_mode = ViewMode::List;
+                app.selected_detail = None;
+                app.detail_scroll_offset = 0;
+            }
+            Cmd::None
+        }
+        Message::ToggleHelp => {
+            app.show_help = !app.show_help;
+            Cmd::None
+        }
     }
 }
 
@@ -150,6 +171,7 @@ fn handle_select(app: &mut App) -> Cmd {
     let Some(patchset) = app.patchsets.items.get(app.selected_index) else {
         return Cmd::None;
     };
+    app.detail_scroll_offset = 0;
     Cmd::FetchPatchsetDetail(PatchId::Numeric(patchset.id))
 }
 
@@ -169,7 +191,10 @@ fn handle_detail_loaded(app: &mut App, result: Result<PatchsetDetail, ApiError>)
 /// Handle API response for server stats.
 fn handle_stats_loaded(app: &mut App, result: Result<ServerStats, ApiError>) -> Cmd {
     match result {
-        Ok(_stats) => { /* future: store stats */ }
+        Ok(stats) => {
+            app.stats = Some(stats);
+            app.error_state = None;
+        }
         Err(e) => app.error_state = Some(e.to_string()),
     }
     Cmd::None
@@ -192,6 +217,26 @@ fn handle_scroll(app: &mut App, msg: &Message) -> Cmd {
     if app.focus != FocusPanel::PatchsetList {
         return Cmd::None;
     }
+    // Detail view: scroll the detail content
+    if app.view_mode == ViewMode::Detail {
+        match *msg {
+            Message::ScrollDown => app.detail_scroll_offset += 1,
+            Message::ScrollUp => {
+                app.detail_scroll_offset = app.detail_scroll_offset.saturating_sub(1);
+            }
+            Message::HalfPageDown => {
+                app.detail_scroll_offset +=
+                    usize::from(app.terminal_height / 2).max(1);
+            }
+            Message::HalfPageUp => {
+                let half = usize::from(app.terminal_height / 2).max(1);
+                app.detail_scroll_offset = app.detail_scroll_offset.saturating_sub(half);
+            }
+            _ => {}
+        }
+        return Cmd::None;
+    }
+    // List view: scroll the selected index
     match *msg {
         Message::ScrollDown => {
             let len = app.patchsets.items.len();
@@ -230,9 +275,14 @@ fn switch_remote(app: &mut App, new_index: usize) -> Cmd {
     app.patchsets.total = 0;
     app.selected_index = 0;
     app.error_state = None;
+    app.stats = None;
+    app.view_mode = ViewMode::List;
+    app.selected_detail = None;
+    app.detail_scroll_offset = 0;
     Cmd::Batch(vec![
         Cmd::FetchPatchsets(ListParams::default()),
         Cmd::FetchLists,
+        Cmd::FetchStats,
     ])
 }
 
@@ -266,14 +316,15 @@ mod tests {
     }
 
     #[test]
-    fn refresh_returns_batch_with_two_fetches() {
+    fn refresh_returns_batch_with_three_fetches() {
         let mut app = App::new(Config::default());
         let cmd = update(&mut app, Message::Refresh);
         match cmd {
             Cmd::Batch(cmds) => {
-                assert_eq!(cmds.len(), 2);
+                assert_eq!(cmds.len(), 3);
                 assert!(matches!(cmds[0], Cmd::FetchPatchsets(_)));
                 assert!(matches!(cmds[1], Cmd::FetchLists));
+                assert!(matches!(cmds[2], Cmd::FetchStats));
             }
             other => panic!("expected Cmd::Batch, got {other:?}"),
         }
@@ -599,9 +650,10 @@ mod tests {
         let cmd = update(&mut app, Message::NextMailbox);
         match cmd {
             Cmd::Batch(cmds) => {
-                assert_eq!(cmds.len(), 2);
+                assert_eq!(cmds.len(), 3);
                 assert!(matches!(cmds[0], Cmd::FetchPatchsets(_)));
                 assert!(matches!(cmds[1], Cmd::FetchLists));
+                assert!(matches!(cmds[2], Cmd::FetchStats));
             }
             other => panic!("expected Cmd::Batch, got {other:?}"),
         }

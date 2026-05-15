@@ -4,7 +4,7 @@
 //! the `RunningState` enum controlling the main event loop.
 
 use crate::config::Config;
-use crate::models::{MailingList, Paginated, Patchset, PatchsetDetail};
+use crate::models::{MailingList, Paginated, Patchset, PatchsetDetail, ServerStats};
 
 /// Top-level application state.
 ///
@@ -36,6 +36,12 @@ pub struct App {
     pub view_mode: ViewMode,
     /// Loaded patchset detail for the detail view.
     pub selected_detail: Option<PatchsetDetail>,
+    /// Cached server stats from the last successful `/api/stats` response.
+    pub stats: Option<ServerStats>,
+    /// Whether the help overlay is currently visible.
+    pub show_help: bool,
+    /// Vertical scroll offset for the detail view content.
+    pub detail_scroll_offset: usize,
 }
 
 impl App {
@@ -66,6 +72,9 @@ impl App {
             focus: FocusPanel::default(),
             view_mode: ViewMode::default(),
             selected_detail: None,
+            stats: None,
+            show_help: false,
+            detail_scroll_offset: 0,
         }
     }
 

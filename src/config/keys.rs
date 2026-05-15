@@ -50,6 +50,32 @@ pub enum KeyAction {
     PrevComment,
 }
 
+impl KeyAction {
+    /// Human-readable label for display in the help overlay.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Quit => "Quit",
+            Self::ScrollDown => "Scroll down",
+            Self::ScrollUp => "Scroll up",
+            Self::ScrollHalfPageDown => "Half page down",
+            Self::ScrollHalfPageUp => "Half page up",
+            Self::NextMailbox => "Next mailbox",
+            Self::PrevMailbox => "Prev mailbox",
+            Self::OpenThread => "Open thread",
+            Self::CloseThread => "Close / Back",
+            Self::Refresh => "Refresh",
+            Self::Search => "Search",
+            Self::BookmarkToggle => "Toggle bookmark",
+            Self::ViewRawLog => "View raw log",
+            Self::Help => "Help",
+            Self::FocusSidebar => "Focus sidebar",
+            Self::NextComment => "Next comment",
+            Self::PrevComment => "Prev comment",
+        }
+    }
+}
+
 /// A physical key combination (key code + modifiers).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct KeyCombo {
