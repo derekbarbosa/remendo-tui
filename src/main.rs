@@ -2,8 +2,9 @@
 
 use color_eyre::Result;
 use remendo_tui::app::RunningState;
-use remendo_tui::client::{HttpClient, SashikoApi};
+use remendo_tui::client::{CachingClient, HttpClient, SashikoApi};
 use remendo_tui::config::Config;
+use std::time::Duration;
 use remendo_tui::{cmd, event, tui, ui, update};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -37,14 +38,17 @@ async fn main() -> Result<()> {
         eprintln!("config warning: {warning}");
     }
 
-    // Construct HTTP clients for all configured remotes.
+    // Construct HTTP clients for all configured remotes, wrapped in caching decorator.
+    let cache_ttl = Duration::from_secs(config.cache.ttl_seconds);
     let mut clients: HashMap<String, Arc<dyn SashikoApi>> = HashMap::new();
     for remote in &config.remotes {
         match HttpClient::new(remote) {
             Ok(c) => {
-                tracing::info!(remote = %remote.name, "connected to remote");
+                tracing::info!(remote = %remote.name, ttl_secs = config.cache.ttl_seconds, "connected to remote");
                 eprintln!("remendo: connected to remote '{}'", remote.name);
-                clients.insert(remote.name.clone(), Arc::new(c));
+                let cached: Arc<dyn SashikoApi> =
+                    Arc::new(CachingClient::new(Arc::new(c), cache_ttl));
+                clients.insert(remote.name.clone(), cached);
             }
             Err(e) => {
                 tracing::error!(remote = %remote.name, error = %e, "failed to create client");
