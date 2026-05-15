@@ -57,8 +57,11 @@ pub fn handle_event(app: &App, event: &Event) -> Option<Message> {
                 .and_then(action_to_message)
         }
         Event::Init => Some(Message::Init),
-        Event::Error
-        | Event::Key(_)
+        Event::Error => {
+            tracing::error!("terminal event stream error");
+            None
+        }
+        Event::Key(_)
         | Event::Mouse(_)
         | Event::FocusGained
         | Event::FocusLost

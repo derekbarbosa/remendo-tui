@@ -104,13 +104,7 @@ mod tests {
     #[test]
     fn app_with_remotes_sets_active() {
         let mut config = Config::default();
-        config.remotes.push(crate::config::RemoteConfig {
-            name: "upstream".to_string(),
-            url: "https://sashiko.dev".to_string(),
-            auth_env: None,
-            timeout_seconds: 15,
-            max_retries: 3,
-        });
+        config.remotes.push(crate::config::RemoteConfig::fixture("upstream"));
         let app = App::new(config);
         assert_eq!(app.active_remote, "upstream");
     }

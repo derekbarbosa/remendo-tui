@@ -207,8 +207,11 @@ fn handle_scroll(app: &mut App, msg: &Message) -> Cmd {
 /// Switch the active remote to the given index, clear patchset data,
 /// and return a fetch command batch.
 fn switch_remote(app: &mut App, new_index: usize) -> Cmd {
+    let Some(remote) = app.config.remotes.get(new_index) else {
+        return Cmd::None;
+    };
     app.active_remote_index = new_index;
-    app.active_remote = app.config.remotes[new_index].name.clone();
+    app.active_remote = remote.name.clone();
     app.patchsets.items.clear();
     app.patchsets.total = 0;
     app.selected_index = 0;
@@ -450,13 +453,7 @@ mod tests {
     fn app_with_remotes(names: &[&str]) -> App {
         let mut config = Config::default();
         for name in names {
-            config.remotes.push(crate::config::RemoteConfig {
-                name: (*name).to_string(),
-                url: format!("https://{name}.example.com"),
-                auth_env: None,
-                timeout_seconds: 15,
-                max_retries: 3,
-            });
+            config.remotes.push(crate::config::RemoteConfig::fixture(name));
         }
         App::new(config)
     }

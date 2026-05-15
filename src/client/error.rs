@@ -53,7 +53,11 @@ impl fmt::Display for ApiError {
             } => {
                 write!(f, "HTTP {status} from remote '{remote}'")?;
                 if let Some(b) = body {
-                    let truncated = if b.len() > 200 { &b[..200] } else { b };
+                    let truncated = if b.len() > 200 {
+                        &b[..b.floor_char_boundary(200)]
+                    } else {
+                        b
+                    };
                     write!(f, ": {truncated}")?;
                 }
                 Ok(())
