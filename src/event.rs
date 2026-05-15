@@ -73,20 +73,20 @@ fn action_to_message(action: KeyAction) -> Option<Message> {
     match action {
         KeyAction::Quit => Some(Message::Quit),
         KeyAction::Refresh => Some(Message::Refresh),
+        KeyAction::ScrollDown => Some(Message::ScrollDown),
+        KeyAction::ScrollUp => Some(Message::ScrollUp),
+        KeyAction::ScrollHalfPageDown => Some(Message::HalfPageDown),
+        KeyAction::ScrollHalfPageUp => Some(Message::HalfPageUp),
+        KeyAction::OpenThread => Some(Message::Select),
+        KeyAction::NextMailbox => Some(Message::NextMailbox),
+        KeyAction::PrevMailbox => Some(Message::PrevMailbox),
+        KeyAction::FocusSidebar => Some(Message::ToggleFocus),
         // Other actions will produce messages when their UI slugs land
-        KeyAction::ScrollDown
-        | KeyAction::ScrollUp
-        | KeyAction::ScrollHalfPageDown
-        | KeyAction::ScrollHalfPageUp
-        | KeyAction::NextMailbox
-        | KeyAction::PrevMailbox
-        | KeyAction::OpenThread
-        | KeyAction::CloseThread
+        KeyAction::CloseThread
         | KeyAction::Search
         | KeyAction::BookmarkToggle
         | KeyAction::ViewRawLog
         | KeyAction::Help
-        | KeyAction::FocusSidebar
         | KeyAction::NextComment
         | KeyAction::PrevComment => None,
     }
@@ -186,5 +186,69 @@ mod tests {
         let event = make_key_event(KeyCode::Char('r'), KeyModifiers::CONTROL);
         let msg = handle_event(&app, &event);
         assert!(matches!(msg, Some(Message::Refresh)));
+    }
+
+    #[test]
+    fn handle_event_scroll_down_via_j() {
+        let app = App::new(Config::default());
+        let event = make_key_event(KeyCode::Char('j'), KeyModifiers::NONE);
+        let msg = handle_event(&app, &event);
+        assert!(matches!(msg, Some(Message::ScrollDown)));
+    }
+
+    #[test]
+    fn handle_event_scroll_up_via_k() {
+        let app = App::new(Config::default());
+        let event = make_key_event(KeyCode::Char('k'), KeyModifiers::NONE);
+        let msg = handle_event(&app, &event);
+        assert!(matches!(msg, Some(Message::ScrollUp)));
+    }
+
+    #[test]
+    fn handle_event_half_page_down_via_ctrl_d() {
+        let app = App::new(Config::default());
+        let event = make_key_event(KeyCode::Char('d'), KeyModifiers::CONTROL);
+        let msg = handle_event(&app, &event);
+        assert!(matches!(msg, Some(Message::HalfPageDown)));
+    }
+
+    #[test]
+    fn handle_event_half_page_up_via_ctrl_u() {
+        let app = App::new(Config::default());
+        let event = make_key_event(KeyCode::Char('u'), KeyModifiers::CONTROL);
+        let msg = handle_event(&app, &event);
+        assert!(matches!(msg, Some(Message::HalfPageUp)));
+    }
+
+    #[test]
+    fn handle_event_select_via_enter() {
+        let app = App::new(Config::default());
+        let event = make_key_event(KeyCode::Enter, KeyModifiers::NONE);
+        let msg = handle_event(&app, &event);
+        assert!(matches!(msg, Some(Message::Select)));
+    }
+
+    #[test]
+    fn handle_event_next_mailbox_via_tab() {
+        let app = App::new(Config::default());
+        let event = make_key_event(KeyCode::Tab, KeyModifiers::NONE);
+        let msg = handle_event(&app, &event);
+        assert!(matches!(msg, Some(Message::NextMailbox)));
+    }
+
+    #[test]
+    fn handle_event_prev_mailbox_via_shift_tab() {
+        let app = App::new(Config::default());
+        let event = make_key_event(KeyCode::Tab, KeyModifiers::SHIFT);
+        let msg = handle_event(&app, &event);
+        assert!(matches!(msg, Some(Message::PrevMailbox)));
+    }
+
+    #[test]
+    fn handle_event_toggle_focus_via_ctrl_s() {
+        let app = App::new(Config::default());
+        let event = make_key_event(KeyCode::Char('s'), KeyModifiers::CONTROL);
+        let msg = handle_event(&app, &event);
+        assert!(matches!(msg, Some(Message::ToggleFocus)));
     }
 }
