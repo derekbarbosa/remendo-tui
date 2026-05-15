@@ -286,22 +286,15 @@ fn select_on_empty_list_is_noop() {
 }
 
 #[test]
-fn select_when_sidebar_focused_is_noop() {
-    let mut app = app_with_remotes(&["upstream"]);
-
-    let patchsets = Paginated {
-        items: vec![Patchset::fixture()],
-        total: 1,
-        page: 1,
-        per_page: 50,
-    };
-    update(&mut app, Message::PatchsetsLoaded(Ok(patchsets)));
+fn select_in_sidebar_switches_remote() {
+    let mut app = app_with_remotes(&["upstream", "staging"]);
     update(&mut app, Message::ToggleFocus); // Switch to Sidebar
 
+    // Select on the currently highlighted remote triggers switch_remote
     let cmd = update(&mut app, Message::Select);
     assert!(
-        matches!(cmd, Cmd::None),
-        "Select when sidebar focused should be Cmd::None"
+        matches!(cmd, Cmd::Batch(_)),
+        "Select in sidebar remotes should trigger remote switch"
     );
 }
 

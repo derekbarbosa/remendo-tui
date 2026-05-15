@@ -3,6 +3,7 @@
 //! Defines the top-level `App` struct (all application state) and
 //! the `RunningState` enum controlling the main event loop.
 
+use crate::client::types::ListParams;
 use crate::config::Config;
 use crate::models::{MailingList, Paginated, Patchset, PatchsetDetail, ServerStats};
 
@@ -42,6 +43,19 @@ pub struct App {
     pub show_help: bool,
     /// Vertical scroll offset for the detail view content.
     pub detail_scroll_offset: usize,
+    /// Current query parameters for the patchset list.
+    /// Shared by pagination, search, and mailing list filter.
+    pub list_params: ListParams,
+    /// Current keyboard input mode.
+    pub input_mode: InputMode,
+    /// Contents of the search input buffer (while typing).
+    pub search_buffer: String,
+    /// Cursor position within `search_buffer` (char index).
+    pub search_cursor: usize,
+    /// Which section of the sidebar has focus.
+    pub sidebar_section: SidebarSection,
+    /// Scroll index within the mailing list section (0 = "All").
+    pub sidebar_list_index: usize,
 }
 
 impl App {
@@ -75,6 +89,12 @@ impl App {
             stats: None,
             show_help: false,
             detail_scroll_offset: 0,
+            list_params: ListParams::default(),
+            input_mode: InputMode::default(),
+            search_buffer: String::new(),
+            search_cursor: 0,
+            sidebar_section: SidebarSection::default(),
+            sidebar_list_index: 0,
         }
     }
 
@@ -103,6 +123,26 @@ pub enum ViewMode {
     List,
     /// Showing the detail view for a selected patchset.
     Detail,
+}
+
+/// Which section of the sidebar has focus when the sidebar is active.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum SidebarSection {
+    /// The remotes list.
+    #[default]
+    Remotes,
+    /// The mailing lists.
+    MailingLists,
+}
+
+/// What mode the keyboard is operating in.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum InputMode {
+    /// Normal keybinding mode.
+    #[default]
+    Normal,
+    /// Text input mode for the search bar.
+    Search,
 }
 
 /// Controls the main event loop lifecycle.

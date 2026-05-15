@@ -48,6 +48,10 @@ pub enum KeyAction {
     NextComment,
     /// Jump to the previous comment/finding.
     PrevComment,
+    /// Navigate to the next page of results.
+    NextPage,
+    /// Navigate to the previous page of results.
+    PrevPage,
 }
 
 impl KeyAction {
@@ -72,6 +76,8 @@ impl KeyAction {
             Self::FocusSidebar => "Focus sidebar",
             Self::NextComment => "Next comment",
             Self::PrevComment => "Prev comment",
+            Self::NextPage => "Next page",
+            Self::PrevPage => "Prev page",
         }
     }
 }
@@ -214,6 +220,8 @@ fn parse_action(s: &str) -> Option<KeyAction> {
         "focus_sidebar" => KeyAction::FocusSidebar,
         "next_comment" => KeyAction::NextComment,
         "prev_comment" => KeyAction::PrevComment,
+        "next_page" => KeyAction::NextPage,
+        "prev_page" => KeyAction::PrevPage,
         _ => return None,
     })
 }
@@ -253,6 +261,8 @@ impl Default for KeybindingsConfig {
             ("focus_sidebar", "C-s"),
             ("next_comment", "n"),
             ("prev_comment", "N"),
+            ("next_page", "]"),
+            ("prev_page", "["),
         ];
 
         let mut bindings = HashMap::new();

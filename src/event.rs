@@ -4,10 +4,10 @@
 //! that translates events into `Message` values via the
 //! keybinding system.
 
-use crate::app::App;
+use crate::app::{App, InputMode};
 use crate::config::keys::{KeyAction, KeyCombo};
 use crate::update::Message;
-use crossterm::event::{KeyEvent, KeyEventKind, MouseEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEvent};
 
 /// Events the application can receive.
 ///
@@ -50,6 +50,10 @@ pub fn handle_event(app: &App, event: &Event) -> Option<Message> {
         Event::Render => Some(Message::Render),
         Event::Resize(w, h) => Some(Message::Resize(w, h)),
         Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+            // Modal interception priority: Search > Help > Normal
+            if app.input_mode == InputMode::Search {
+                return handle_search_key(key_event);
+            }
             let combo = KeyCombo::new(key_event.code, key_event.modifiers);
             // Modal interception: help overlay swallows all keys except ?/Esc
             if app.show_help {
@@ -77,6 +81,26 @@ pub fn handle_event(app: &App, event: &Event) -> Option<Message> {
     }
 }
 
+/// Handle a key event during search input mode.
+///
+/// Bypasses the keybinding system entirely — keys are interpreted
+/// as text input, cursor movement, or search lifecycle actions.
+fn handle_search_key(key_event: KeyEvent) -> Option<Message> {
+    match key_event.code {
+        KeyCode::Char(c)
+            if !key_event
+                .modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+        {
+            Some(Message::SearchInput(c))
+        }
+        KeyCode::Backspace => Some(Message::SearchInput('\x08')),
+        KeyCode::Enter => Some(Message::SearchSubmit),
+        KeyCode::Esc => Some(Message::SearchCancel),
+        _ => None,
+    }
+}
+
 /// Map a semantic key action to a `Message`.
 ///
 /// Actions that don't yet have corresponding UI features return `None`.
@@ -94,9 +118,11 @@ fn action_to_message(action: KeyAction) -> Option<Message> {
         KeyAction::FocusSidebar => Some(Message::ToggleFocus),
         KeyAction::CloseThread => Some(Message::Back),
         KeyAction::Help => Some(Message::ToggleHelp),
+        KeyAction::NextPage => Some(Message::NextPage),
+        KeyAction::PrevPage => Some(Message::PrevPage),
+        KeyAction::Search => Some(Message::SearchStart),
         // Other actions will produce messages when their UI slugs land
-        KeyAction::Search
-        | KeyAction::BookmarkToggle
+        KeyAction::BookmarkToggle
         | KeyAction::ViewRawLog
         | KeyAction::NextComment
         | KeyAction::PrevComment => None,
