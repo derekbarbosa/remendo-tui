@@ -9,8 +9,6 @@ pub enum ConfigError {
     Io(std::io::Error),
     /// TOML parsing/deserialization error.
     Parse(toml::de::Error),
-    /// Validation errors after successful parsing.
-    Validation(Vec<String>),
 }
 
 impl fmt::Display for ConfigError {
@@ -18,16 +16,6 @@ impl fmt::Display for ConfigError {
         match self {
             Self::Io(e) => write!(f, "config I/O error: {e}"),
             Self::Parse(e) => write!(f, "config parse error: {e}"),
-            Self::Validation(msgs) => {
-                write!(f, "config validation errors: ")?;
-                for (i, msg) in msgs.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, "; ")?;
-                    }
-                    write!(f, "{msg}")?;
-                }
-                Ok(())
-            }
         }
     }
 }
@@ -37,7 +25,6 @@ impl std::error::Error for ConfigError {
         match self {
             Self::Io(e) => Some(e),
             Self::Parse(e) => Some(e),
-            Self::Validation(_) => None,
         }
     }
 }
@@ -66,8 +53,6 @@ pub enum ConfigWarning {
         /// The invalid URL string.
         url: String,
     },
-    /// A non-critical parse issue.
-    ParseWarning(String),
 }
 
 impl fmt::Display for ConfigWarning {
@@ -77,7 +62,6 @@ impl fmt::Display for ConfigWarning {
             Self::InvalidRemoteUrl { name, url } => {
                 write!(f, "remote '{name}' has invalid URL: {url}")
             }
-            Self::ParseWarning(msg) => write!(f, "config warning: {msg}"),
         }
     }
 }
