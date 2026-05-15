@@ -2,6 +2,9 @@
 # Apogee lifecycle artifacts (private working state)
 apogee_artifacts/
 
+# Confidential policy documents
+docs/REDHAT.md
+
 # Apogee local config (per-developer, not shared)
 .mcp.json
 .design-approved
