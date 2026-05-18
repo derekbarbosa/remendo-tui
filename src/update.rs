@@ -92,6 +92,8 @@ pub enum Message {
     MessagesLoaded(Result<Paginated<EmailMessage>, ApiError>),
     /// Message detail loaded from API.
     MessageDetailLoaded(Box<Result<EmailMessage, ApiError>>),
+    /// Toggle the bookmark-only filter in the list view.
+    ToggleBookmarkFilter,
     /// Cycle to the next sort column.
     CycleSort,
     /// Reverse the current sort direction.
@@ -214,6 +216,7 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
         Message::ToggleListContent => handle_toggle_list_content(app),
         Message::MessagesLoaded(result) => handle_messages_loaded(app, result),
         Message::MessageDetailLoaded(result) => handle_message_detail_loaded(app, *result),
+        Message::ToggleBookmarkFilter => handle_bookmark_filter_toggle(app),
         Message::CycleSort => handle_sort_cycle(app),
         Message::ReverseSort => handle_reverse_sort(app),
     }
@@ -250,6 +253,7 @@ fn log_message(msg: &Message, app: &App) {
         Message::PrevComment => tracing::debug!("prev comment"),
         Message::ViewBaselineLog => tracing::debug!("view baseline log"),
         Message::ToggleListContent => tracing::debug!("toggle list content"),
+        Message::ToggleBookmarkFilter => tracing::debug!("toggle bookmark filter"),
         Message::CycleSort => tracing::debug!("cycle sort"),
         Message::ReverseSort => tracing::debug!("reverse sort"),
         // API results logged in their handlers; Quit logged in update()
@@ -842,6 +846,13 @@ fn handle_sidebar_select(app: &mut App) -> Cmd {
     }
 }
 
+/// Toggle the bookmark-only display filter.
+fn handle_bookmark_filter_toggle(app: &mut App) -> Cmd {
+    app.show_bookmarks_only = !app.show_bookmarks_only;
+    app.selected_index = 0;
+    Cmd::None
+}
+
 /// Map a `PatchsetStatus` to a sort key (lifecycle priority order).
 fn status_sort_key(s: crate::models::PatchsetStatus) -> u8 {
     use crate::models::PatchsetStatus;
@@ -945,6 +956,7 @@ fn switch_remote(app: &mut App, new_index: usize) -> Cmd {
     app.selected_message = None;
     app.sort_column = SortColumn::Default;
     app.sort_direction = SortDirection::Ascending;
+    app.show_bookmarks_only = false;
     Cmd::Batch(vec![
         Cmd::FetchPatchsets(app.list_params.clone()),
         Cmd::FetchLists,
@@ -1797,5 +1809,53 @@ mod tests {
         assert_eq!(app.patchsets.items[0].id, 10);
         assert_eq!(app.patchsets.items[1].id, 20);
         assert_eq!(app.patchsets.items[2].id, 30);
+    }
+
+    // --- bookmark-filtering tests ---
+
+    #[test]
+    fn bookmark_filter_toggle_on() {
+        let mut app = App::new(Config::default());
+        assert!(!app.show_bookmarks_only);
+        update(&mut app, Message::ToggleBookmarkFilter);
+        assert!(app.show_bookmarks_only);
+    }
+
+    #[test]
+    fn bookmark_filter_toggle_off() {
+        let mut app = App::new(Config::default());
+        app.show_bookmarks_only = true;
+        update(&mut app, Message::ToggleBookmarkFilter);
+        assert!(!app.show_bookmarks_only);
+    }
+
+    #[test]
+    fn bookmark_filter_resets_selected_index() {
+        let mut app = App::new(Config::default());
+        app.selected_index = 4;
+        update(&mut app, Message::ToggleBookmarkFilter);
+        assert_eq!(app.selected_index, 0);
+    }
+
+    #[test]
+    fn bookmark_filter_returns_cmd_none() {
+        let mut app = App::new(Config::default());
+        let cmd = update(&mut app, Message::ToggleBookmarkFilter);
+        assert!(matches!(cmd, Cmd::None));
+    }
+
+    #[test]
+    fn switch_remote_resets_bookmark_filter() {
+        let mut config = Config::default();
+        config
+            .remotes
+            .push(crate::config::RemoteConfig::fixture("r1"));
+        config
+            .remotes
+            .push(crate::config::RemoteConfig::fixture("r2"));
+        let mut app = App::new(config);
+        app.show_bookmarks_only = true;
+        update(&mut app, Message::NextMailbox);
+        assert!(!app.show_bookmarks_only);
     }
 }

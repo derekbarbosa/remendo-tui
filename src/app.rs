@@ -45,6 +45,8 @@ pub struct App {
     pub stats: Option<ServerStats>,
     /// Whether the help overlay is currently visible.
     pub show_help: bool,
+    /// Whether the list view is filtered to bookmarked patchsets only.
+    pub show_bookmarks_only: bool,
     /// Vertical scroll offset for the detail view content.
     pub detail_scroll_offset: usize,
     /// Current query parameters for the patchset list.
@@ -111,6 +113,7 @@ impl App {
             loading_context: None,
             stats: None,
             show_help: false,
+            show_bookmarks_only: false,
             detail_scroll_offset: 0,
             list_params: ListParams::default(),
             input_mode: InputMode::default(),
