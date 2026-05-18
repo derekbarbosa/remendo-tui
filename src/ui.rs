@@ -859,10 +859,11 @@ fn detail_patches_lines<'a>(
                 if let Some(ref inline) = rev.inline_review {
                     lines.push(Line::raw(""));
                     for review_line in inline.lines() {
-                        lines.push(Line::styled(
-                            format!("    {review_line}"),
-                            Style::default().fg(palette.foreground.color()),
-                        ));
+                        let style = classify_diff_line(review_line, palette);
+                        lines.push(Line::from(vec![
+                            Span::raw("    "),
+                            Span::styled(review_line, style),
+                        ]));
                     }
                     lines.push(Line::raw(""));
                 }
