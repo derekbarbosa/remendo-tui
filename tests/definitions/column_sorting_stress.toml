@@ -1,0 +1,117 @@
+# column-sorting stress test definitions
+
+[metadata]
+feature = "column-sorting"
+tier = "stress"
+series = "series7-polish-and-ux"
+generated_by = "multi_feature.test_definition_generation"
+
+[[steps]]
+name = "rapid_cycle_all_columns_repeatedly"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "stress"]
+group = "rapid-cycling"
+description = "Press 's' 25 times rapidly — verify final sort_column is correct (25 mod 5 = 0, so Default) and no panics occur."
+acceptance_criteria_ref = "PLAN-01 criterion: s cycles through all variants"
+
+[[steps]]
+name = "rapid_reverse_toggle"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "stress"]
+group = "rapid-cycling"
+description = "With sort_column=Status, press 'S' 10 times rapidly — verify sort_direction alternates correctly and final state is Ascending (even count)."
+acceptance_criteria_ref = "PLAN-01 criterion: S reverses direction"
+
+[[steps]]
+name = "sort_empty_patchset_list"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "stress"]
+group = "edge-case"
+description = "Set patchsets.items to empty vec, cycle sort column — verify no panic and sort_column advances normally."
+acceptance_criteria_ref = "PLAN-01 criterion: apply_sort on empty list"
+
+[[steps]]
+name = "sort_single_item_list"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "stress"]
+group = "edge-case"
+description = "Set patchsets.items to single patchset, sort by each column — verify item remains at index 0 and no panic."
+acceptance_criteria_ref = "PLAN-01 criterion: apply_sort handles single item"
+
+[[steps]]
+name = "sort_with_none_dates"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "stress"]
+group = "edge-case"
+description = "Create patchsets where some have date=None, sort by Date ascending — verify None dates sort consistently (last or first)."
+acceptance_criteria_ref = "PLAN-01 criterion: Date sort handles Option<i64>"
+
+[[steps]]
+name = "sort_with_none_author"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "stress"]
+group = "edge-case"
+description = "Create patchsets where author() returns None for some items, sort by Author ascending — verify None authors sort as empty string."
+acceptance_criteria_ref = "PLAN-01 criterion: Author sort uses unwrap_or empty string"
+
+[[steps]]
+name = "sort_large_list_performance"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "stress"]
+group = "resource-exhaustion"
+description = "Create 500 patchsets, sort by each column — verify sort completes without timeout or excessive allocation."
+acceptance_criteria_ref = "PLAN-01 criterion: in-place sort performance"
+
+[[steps]]
+name = "sort_with_unicode_authors"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "stress"]
+group = "adversarial-input"
+description = "Create patchsets with Unicode author names (CJK, emoji, RTL), sort by Author — verify no panic and lexicographic order is applied."
+acceptance_criteria_ref = "PLAN-01 criterion: Author sort is lexicographic"
+
+[[steps]]
+name = "cycle_sort_then_load_new_page"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "stress"]
+group = "rapid-cycling"
+description = "Set sort to Findings/Descending, trigger page load with new patchsets — verify new items are sorted by Findings descending."
+acceptance_criteria_ref = "PLAN-01 criterion: sort persists across page loads"
+
+[[steps]]
+name = "sort_with_zero_findings"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "stress"]
+group = "edge-case"
+description = "Create patchsets where all findings.total() = 0, sort by Findings — verify stable order (no reordering of equal items)."
+acceptance_criteria_ref = "PLAN-01 criterion: Findings sort handles zero counts"

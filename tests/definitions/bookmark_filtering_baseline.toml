@@ -1,0 +1,150 @@
+# bookmark-filtering baseline test definitions
+
+[metadata]
+feature = "bookmark-filtering"
+tier = "baseline"
+series = "series7-polish-and-ux"
+generated_by = "multi_feature.test_definition_generation"
+
+[[steps]]
+name = "toggle_bookmark_filter_on"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view"]
+group = "happy-path"
+description = "Press 'B' in list view — verify show_bookmarks_only flips from false to true."
+acceptance_criteria_ref = "PLAN-01 criterion: B toggles show_bookmarks_only"
+
+[[steps]]
+name = "toggle_bookmark_filter_off"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view"]
+group = "happy-path"
+description = "With show_bookmarks_only=true, press 'B' — verify it flips back to false."
+acceptance_criteria_ref = "PLAN-01 criterion: B toggles show_bookmarks_only"
+
+[[steps]]
+name = "filter_hides_non_bookmarked_patchsets"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "rendering"]
+group = "happy-path"
+description = "With 5 patchsets and 2 bookmarked, toggle filter on — verify only the 2 bookmarked patchsets appear in rendered rows."
+acceptance_criteria_ref = "PLAN-01 criterion: only bookmarked patchsets shown when active"
+
+[[steps]]
+name = "filter_shows_all_when_off"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "rendering"]
+group = "happy-path"
+description = "Toggle filter off after filtering — verify all patchsets reappear in rendered rows."
+acceptance_criteria_ref = "PLAN-01 criterion: all patchsets visible when filter inactive"
+
+[[steps]]
+name = "selected_index_resets_on_toggle_on"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view"]
+group = "happy-path"
+description = "Set selected_index to 4, press 'B' to toggle on — verify selected_index resets to 0."
+acceptance_criteria_ref = "PLAN-01 criterion: selected_index resets to 0 on toggle"
+
+[[steps]]
+name = "selected_index_resets_on_toggle_off"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view"]
+group = "happy-path"
+description = "With filter active and selected_index at 1, press 'B' to toggle off — verify selected_index resets to 0."
+acceptance_criteria_ref = "PLAN-01 criterion: selected_index resets to 0 on toggle"
+
+[[steps]]
+name = "title_bar_shows_bookmark_indicator"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "rendering"]
+group = "happy-path"
+description = "Toggle filter on — verify title bar includes '| [B] bookmarks' indicator text."
+acceptance_criteria_ref = "PLAN-01 criterion: title bar shows bookmark indicator"
+
+[[steps]]
+name = "title_bar_hides_indicator_when_off"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "rendering"]
+group = "happy-path"
+description = "Toggle filter off — verify title bar does not contain bookmark indicator."
+acceptance_criteria_ref = "PLAN-01 criterion: no indicator when filter inactive"
+
+[[steps]]
+name = "switch_remote_resets_filter"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view"]
+group = "happy-path"
+description = "Set show_bookmarks_only=true, call switch_remote() — verify show_bookmarks_only resets to false."
+acceptance_criteria_ref = "PLAN-01 criterion: switch_remote resets filter"
+
+[[steps]]
+name = "filter_returns_cmd_none"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view"]
+group = "happy-path"
+description = "Toggle bookmark filter — verify handler returns Cmd::None (no API call triggered)."
+acceptance_criteria_ref = "PLAN-01 criterion: client-side only, returns Cmd::None"
+
+[[steps]]
+name = "keybinding_b_vs_B_distinct"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "keybinding"]
+group = "happy-path"
+description = "Verify 'b' dispatches BookmarkToggle (persist) and 'B' dispatches ToggleBookmarkFilter (display filter) — they are distinct actions."
+acceptance_criteria_ref = "PLAN-01 criterion: b=BookmarkToggle, B=BookmarkFilter"
+
+[[steps]]
+name = "filter_with_bookmark_contains_check"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view"]
+group = "happy-path"
+description = "With active_remote set and bookmarks containing specific IDs, toggle filter — verify only patchsets with matching IDs in BookmarkStore pass the filter predicate."
+acceptance_criteria_ref = "PLAN-01 criterion: bookmarks.contains(&active_remote, ps.id)"
+
+[[steps]]
+name = "B_blocked_in_search_mode"
+type = "negative"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "keybinding"]
+group = "error-path"
+description = "Enter search input mode, press 'B' — verify the keypress is consumed by search, not interpreted as ToggleBookmarkFilter."
+acceptance_criteria_ref = "PLAN-01 criterion: keybinding blocked during search input"

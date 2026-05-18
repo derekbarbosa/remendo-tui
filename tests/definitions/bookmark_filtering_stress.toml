@@ -1,0 +1,84 @@
+# bookmark-filtering stress test definitions
+
+[metadata]
+feature = "bookmark-filtering"
+tier = "stress"
+series = "series7-polish-and-ux"
+generated_by = "multi_feature.test_definition_generation"
+
+[[steps]]
+name = "rapid_toggle_on_off"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "stress"]
+group = "rapid-cycling"
+description = "Press 'B' 20 times rapidly — verify final state is show_bookmarks_only=false (even count) and no panics occur."
+acceptance_criteria_ref = "PLAN-01 criterion: B toggles show_bookmarks_only"
+
+[[steps]]
+name = "filter_with_no_bookmarks"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "stress"]
+group = "edge-case"
+description = "With empty BookmarkStore, toggle filter on — verify zero rows rendered and no panic."
+acceptance_criteria_ref = "PLAN-01 criterion: zero matching bookmarks shows empty table"
+
+[[steps]]
+name = "filter_with_all_bookmarked"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "stress"]
+group = "edge-case"
+description = "Bookmark all patchsets, toggle filter on — verify all rows still visible (filter is a no-op when all are bookmarked)."
+acceptance_criteria_ref = "PLAN-01 criterion: filter predicate with all bookmarked"
+
+[[steps]]
+name = "filter_with_empty_patchset_list"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "stress"]
+group = "edge-case"
+description = "With empty patchsets.items, toggle filter on — verify no panic and empty table renders."
+acceptance_criteria_ref = "PLAN-01 criterion: empty patchset list with filter active"
+
+[[steps]]
+name = "filter_after_remote_switch_and_rebookmark"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "stress"]
+group = "rapid-cycling"
+description = "Toggle filter on, switch remote (resets filter), bookmark new items, toggle filter on again — verify filter operates on new remote's bookmarks."
+acceptance_criteria_ref = "PLAN-01 criterion: switch_remote resets, new bookmarks work"
+
+[[steps]]
+name = "filter_preserves_during_page_load"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "stress"]
+group = "edge-case"
+description = "Toggle filter on, load new page of patchsets — verify show_bookmarks_only remains true and new page is filtered."
+acceptance_criteria_ref = "PLAN-01 criterion: filter persists across page loads"
+
+[[steps]]
+name = "filter_large_list_500_items"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["bookmark-filtering", "tui-list-view", "stress"]
+group = "resource-exhaustion"
+description = "Create 500 patchsets with 10 bookmarked, toggle filter — verify only 10 rows rendered and no performance degradation."
+acceptance_criteria_ref = "PLAN-01 criterion: filter predicate is O(1) per item"

@@ -1,0 +1,150 @@
+# diff-syntax-highlighting baseline test definitions
+
+[metadata]
+feature = "diff-syntax-highlighting"
+tier = "baseline"
+series = "series7-polish-and-ux"
+generated_by = "multi_feature.test_definition_generation"
+
+[[steps]]
+name = "added_line_styled_green"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
+group = "happy-path"
+description = "Pass a line starting with '+' (not '+++') to classify_diff_line — verify returned style uses palette.success color."
+acceptance_criteria_ref = "PLAN-01 criterion: + lines styled with palette.success (green)"
+
+[[steps]]
+name = "removed_line_styled_red"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
+group = "happy-path"
+description = "Pass a line starting with '-' (not '---') to classify_diff_line — verify returned style uses palette.error color."
+acceptance_criteria_ref = "PLAN-01 criterion: - lines styled with palette.error (red)"
+
+[[steps]]
+name = "hunk_header_styled_accent_bold"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
+group = "happy-path"
+description = "Pass a line starting with '@@' to classify_diff_line — verify returned style uses palette.accent color and bold modifier."
+acceptance_criteria_ref = "PLAN-01 criterion: @@ lines styled with palette.accent bold"
+
+[[steps]]
+name = "file_header_plus_plus_plus_styled"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
+group = "happy-path"
+description = "Pass a line starting with '+++' to classify_diff_line — verify returned style uses palette.foreground color and bold modifier (NOT palette.success)."
+acceptance_criteria_ref = "PLAN-01 criterion: +++ lines styled as file header, not addition"
+
+[[steps]]
+name = "file_header_minus_minus_minus_styled"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
+group = "happy-path"
+description = "Pass a line starting with '---' to classify_diff_line — verify returned style uses palette.foreground color and bold modifier (NOT palette.error)."
+acceptance_criteria_ref = "PLAN-01 criterion: --- lines styled as file header, not deletion"
+
+[[steps]]
+name = "file_header_diff_git_styled"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
+group = "happy-path"
+description = "Pass a line starting with 'diff --git' to classify_diff_line — verify returned style uses palette.foreground bold."
+acceptance_criteria_ref = "PLAN-01 criterion: diff lines styled as file header"
+
+[[steps]]
+name = "file_header_index_styled"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
+group = "happy-path"
+description = "Pass a line starting with 'index ' to classify_diff_line — verify returned style uses palette.foreground bold."
+acceptance_criteria_ref = "PLAN-01 criterion: index lines styled as file header"
+
+[[steps]]
+name = "context_line_styled_muted"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
+group = "happy-path"
+description = "Pass an ordinary context line (e.g. ' int x = 0;') to classify_diff_line — verify returned style uses palette.muted."
+acceptance_criteria_ref = "PLAN-01 criterion: context lines styled with palette.muted"
+
+[[steps]]
+name = "empty_line_styled_muted"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
+group = "edge-case"
+description = "Pass an empty string to classify_diff_line — verify returned style uses palette.muted (context fallback)."
+acceptance_criteria_ref = "PLAN-01 criterion: unrecognized lines fall through to muted"
+
+[[steps]]
+name = "separator_header_untouched"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "rendering"]
+group = "happy-path"
+description = "Render a message with a diff — verify the '── Diff ──' separator is still styled with palette.accent bold and is not processed by classify_diff_line."
+acceptance_criteria_ref = "PLAN-01 criterion: separator untouched"
+
+[[steps]]
+name = "full_diff_rendering_snapshot"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "snapshot"]
+group = "happy-path"
+description = "Render message detail using fixture_with_diff() — verify snapshot matches expected styled output with green additions, red deletions, accent hunk headers, and bold file headers."
+acceptance_criteria_ref = "PLAN-01 criterion: visual rendering of classified diff lines"
+
+[[steps]]
+name = "no_diff_message_renders_normally"
+type = "negative"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
+group = "error-path"
+description = "Render message detail with diff=None — verify no diff section rendered (existing behavior preserved)."
+acceptance_criteria_ref = "PLAN-01 criterion: no regression for messages without diff"
+
+[[steps]]
+name = "fixture_with_diff_available"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
+group = "happy-path"
+description = "Call EmailMessage::fixture_with_diff() — verify returned message has Some(diff) containing all prefix types (+, -, @@, +++, ---, diff, index, context)."
+acceptance_criteria_ref = "PLAN-01 criterion: fixture_with_diff exists for testing"
