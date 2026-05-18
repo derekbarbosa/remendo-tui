@@ -516,7 +516,31 @@ fn render_message_table(
 
 /// Render the message detail view.
 /// Classify a diff line by its leading prefix and return the appropriate style.
+///
+/// Handles both raw unified diff content and `>` quoted diff lines
+/// (as found in LKML-formatted inline reviews). Strips leading `> `
+/// or `>` prefixes before matching.
 fn classify_diff_line(line: &str, palette: &ColorPalette) -> Style {
+    // Strip email quoting: "> " or ">" prefix (possibly nested like ">> ")
+    let stripped = strip_email_quoting(line);
+    classify_diff_content(stripped, palette)
+}
+
+/// Strip leading email `>` quoting prefixes from a line.
+///
+/// Handles `"> "`, `">"`, and nested quoting like `">> "`.
+fn strip_email_quoting(line: &str) -> &str {
+    let mut s = line;
+    while s.starts_with('>') {
+        s = s.strip_prefix('>').unwrap_or(s);
+        // Consume one optional space after each >
+        s = s.strip_prefix(' ').unwrap_or(s);
+    }
+    s
+}
+
+/// Classify the content portion of a diff line (after any quoting is stripped).
+fn classify_diff_content(line: &str, palette: &ColorPalette) -> Style {
     if line.starts_with("+++") || line.starts_with("---")
         || line.starts_with("diff ") || line.starts_with("index ")
     {
@@ -1103,6 +1127,8 @@ mod tests {
 
     // --- diff-syntax-highlighting tests ---
 
+    // Raw diff lines (EmailMessage.diff path)
+
     #[test]
     fn classify_diff_line_addition() {
         let palette = ColorPalette::default();
@@ -1128,7 +1154,6 @@ mod tests {
     fn classify_diff_line_file_header_plus() {
         let palette = ColorPalette::default();
         let style = classify_diff_line("+++ b/foo.c", &palette);
-        // File header, NOT addition — must be foreground bold
         assert_eq!(style.fg, Some(palette.foreground.color()));
     }
 
@@ -1136,7 +1161,6 @@ mod tests {
     fn classify_diff_line_file_header_minus() {
         let palette = ColorPalette::default();
         let style = classify_diff_line("--- a/foo.c", &palette);
-        // File header, NOT deletion — must be foreground bold
         assert_eq!(style.fg, Some(palette.foreground.color()));
     }
 
@@ -1166,6 +1190,98 @@ mod tests {
         let palette = ColorPalette::default();
         let style = classify_diff_line("", &palette);
         assert_eq!(style.fg, Some(palette.muted.color()));
+    }
+
+    // Quoted diff lines (inline_review path with > prefix)
+
+    #[test]
+    fn classify_diff_line_quoted_addition() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("> +    x = compute();", &palette);
+        assert_eq!(style.fg, Some(palette.success.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_quoted_deletion() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("> -    return 0;", &palette);
+        assert_eq!(style.fg, Some(palette.error.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_quoted_hunk_header() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("> @@ -10,3 +10,4 @@", &palette);
+        assert_eq!(style.fg, Some(palette.accent.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_quoted_file_header() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("> +++ b/foo.c", &palette);
+        assert_eq!(style.fg, Some(palette.foreground.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_double_quoted() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line(">> +added in nested quote", &palette);
+        assert_eq!(style.fg, Some(palette.success.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_quoted_no_space() {
+        let palette = ColorPalette::default();
+        // Some mail clients produce ">" without trailing space
+        let style = classify_diff_line(">+added line", &palette);
+        assert_eq!(style.fg, Some(palette.success.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_quoted_context() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line(">  context line", &palette);
+        assert_eq!(style.fg, Some(palette.muted.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_plain_prose() {
+        let palette = ColorPalette::default();
+        // Plain review commentary — no diff prefix
+        let style = classify_diff_line("LGTM. The null check looks correct.", &palette);
+        assert_eq!(style.fg, Some(palette.muted.color()));
+    }
+
+    // strip_email_quoting unit tests
+
+    #[test]
+    fn strip_email_quoting_no_prefix() {
+        assert_eq!(strip_email_quoting("+added line"), "+added line");
+    }
+
+    #[test]
+    fn strip_email_quoting_single_level() {
+        assert_eq!(strip_email_quoting("> +added line"), "+added line");
+    }
+
+    #[test]
+    fn strip_email_quoting_double_level() {
+        assert_eq!(strip_email_quoting(">> +added line"), "+added line");
+    }
+
+    #[test]
+    fn strip_email_quoting_no_space() {
+        assert_eq!(strip_email_quoting(">+added line"), "+added line");
+    }
+
+    #[test]
+    fn strip_email_quoting_empty() {
+        assert_eq!(strip_email_quoting(""), "");
+    }
+
+    #[test]
+    fn strip_email_quoting_only_chevron() {
+        assert_eq!(strip_email_quoting("> "), "");
     }
 
     // --- thread-indentation tests ---
