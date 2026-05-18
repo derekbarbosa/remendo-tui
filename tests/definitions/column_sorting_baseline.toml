@@ -1,0 +1,205 @@
+# column-sorting baseline test definitions
+
+[metadata]
+feature = "column-sorting"
+tier = "baseline"
+series = "series7-polish-and-ux"
+generated_by = "multi_feature.test_definition_generation"
+
+[[steps]]
+name = "cycle_sort_column_default_to_status"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Press 's' from Default sort — verify sort_column advances to Status and sort_direction resets to Ascending."
+acceptance_criteria_ref = "PLAN-01 criterion: s cycles sort_column Default→Status→Date→Findings→Author→Default"
+
+[[steps]]
+name = "cycle_sort_column_full_cycle"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Press 's' 5 times to cycle through Status→Date→Findings→Author→Default. Verify each transition produces the correct sort_column value and resets sort_direction to Ascending."
+acceptance_criteria_ref = "PLAN-01 criterion: s cycles sort_column through all 5 variants"
+
+[[steps]]
+name = "reverse_sort_direction"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Set sort to Status/Ascending, press 'S' — verify sort_direction flips to Descending without changing sort_column. Press 'S' again — verify it returns to Ascending."
+acceptance_criteria_ref = "PLAN-01 criterion: S reverses sort_direction without changing column"
+
+[[steps]]
+name = "header_indicator_ascending"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "rendering"]
+group = "happy-path"
+description = "When sort_column=Date and sort_direction=Ascending, verify the Date column header renders as 'Date ▲' and other column headers have no indicator."
+acceptance_criteria_ref = "PLAN-01 criterion: active column header shows ▲/▼ indicator"
+
+[[steps]]
+name = "header_indicator_descending"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "rendering"]
+group = "happy-path"
+description = "When sort_column=Date and sort_direction=Descending, verify the Date column header renders as 'Date ▼'."
+acceptance_criteria_ref = "PLAN-01 criterion: active column header shows ▲/▼ indicator"
+
+[[steps]]
+name = "no_indicator_on_default_sort"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "rendering"]
+group = "happy-path"
+description = "When sort_column=Default, verify no column header has a sort indicator (▲ or ▼)."
+acceptance_criteria_ref = "PLAN-01 criterion: Default = no indicator shown"
+
+[[steps]]
+name = "selected_index_resets_on_cycle"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Set selected_index to 5, press 's' — verify selected_index resets to 0."
+acceptance_criteria_ref = "PLAN-01 criterion: selected_index resets to 0 on sort change"
+
+[[steps]]
+name = "selected_index_resets_on_reverse"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Set selected_index to 3 with active sort, press 'S' — verify selected_index resets to 0."
+acceptance_criteria_ref = "PLAN-01 criterion: selected_index resets to 0 on sort change"
+
+[[steps]]
+name = "sort_applied_on_page_load"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Set sort_column=Date, load new patchsets via handle_patchsets_loaded — verify the new items are sorted by date."
+acceptance_criteria_ref = "PLAN-01 criterion: apply_sort called from handle_patchsets_loaded"
+
+[[steps]]
+name = "switch_remote_resets_sort"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Set sort to Status/Descending, call switch_remote() — verify sort_column resets to Default and sort_direction resets to Ascending."
+acceptance_criteria_ref = "PLAN-01 criterion: switch_remote resets sort state"
+
+[[steps]]
+name = "default_sort_preserves_api_order"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "With sort_column=Default, load patchsets — verify items remain in API-returned order (apply_sort is no-op)."
+acceptance_criteria_ref = "PLAN-01 criterion: Default = no comparator, API order preserved"
+
+[[steps]]
+name = "status_sort_key_exhaustive"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Call status_sort_key for all 9 PatchsetStatus variants (FailedToApply, Failed, Incomplete, Pending, InReview, Cancelled, Skipped, Reviewed, Unknown) — verify each returns a distinct u8 and the order matches lifecycle priority."
+acceptance_criteria_ref = "PLAN-01 criterion: status_sort_key exhaustive over all 9 variants"
+
+[[steps]]
+name = "sort_by_status_ascending"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Create patchsets with mixed statuses, sort by Status ascending — verify FailedToApply appears first, Unknown appears last."
+acceptance_criteria_ref = "PLAN-01 criterion: Status sort uses status_sort_key"
+
+[[steps]]
+name = "sort_by_findings_descending"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Create patchsets with varying finding counts, sort by Findings descending — verify highest count appears first."
+acceptance_criteria_ref = "PLAN-01 criterion: Findings sort uses FindingCounts.total()"
+
+[[steps]]
+name = "sort_by_author_lexicographic"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Create patchsets with different authors, sort by Author ascending — verify lexicographic order (A before Z)."
+acceptance_criteria_ref = "PLAN-01 criterion: Author sort is lexicographic"
+
+[[steps]]
+name = "sort_stability_equal_keys"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "edge-case"
+description = "Create patchsets with identical dates, sort by Date — verify equal elements retain their relative API order (stable sort)."
+acceptance_criteria_ref = "PLAN-01 criterion: Rust sort_by is stable"
+
+[[steps]]
+name = "direction_resets_on_column_change"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view"]
+group = "happy-path"
+description = "Set sort to Date/Descending, press 's' to advance to Findings — verify sort_direction resets to Ascending."
+acceptance_criteria_ref = "PLAN-01 criterion: direction resets to Ascending on column change"
+
+[[steps]]
+name = "keybinding_s_not_consumed_in_search_mode"
+type = "negative"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["column-sorting", "tui-list-view", "keybinding"]
+group = "error-path"
+description = "Enter search input mode, press 's' — verify it is treated as text input, not as CycleSort."
+acceptance_criteria_ref = "PLAN-01 criterion: keybinding context awareness"

@@ -1,0 +1,117 @@
+# diff-syntax-highlighting stress test definitions
+
+[metadata]
+feature = "diff-syntax-highlighting"
+tier = "stress"
+series = "series7-polish-and-ux"
+generated_by = "multi_feature.test_definition_generation"
+
+[[steps]]
+name = "classify_line_with_only_plus"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "stress"]
+group = "edge-case"
+description = "Pass a line that is just '+' (single character) — verify styled as palette.success (addition, not file header)."
+acceptance_criteria_ref = "PLAN-01 criterion: + checked after +++ disambiguation"
+
+[[steps]]
+name = "classify_line_with_only_minus"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "stress"]
+group = "edge-case"
+description = "Pass a line that is just '-' (single character) — verify styled as palette.error (deletion, not file header)."
+acceptance_criteria_ref = "PLAN-01 criterion: - checked after --- disambiguation"
+
+[[steps]]
+name = "classify_line_four_plus_signs"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "stress"]
+group = "adversarial-input"
+description = "Pass a line starting with '++++' — verify styled as file header (foreground bold) because starts_with('+++') matches."
+acceptance_criteria_ref = "PLAN-01 criterion: +++ prefix matching"
+
+[[steps]]
+name = "classify_line_four_minus_signs"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "stress"]
+group = "adversarial-input"
+description = "Pass a line starting with '----' — verify styled as file header (foreground bold) because starts_with('---') matches."
+acceptance_criteria_ref = "PLAN-01 criterion: --- prefix matching"
+
+[[steps]]
+name = "classify_line_at_at_with_content"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "stress"]
+group = "edge-case"
+description = "Pass '@@ -1,3 +1,4 @@ fn main()' — verify entire line styled as accent bold."
+acceptance_criteria_ref = "PLAN-01 criterion: @@ hunk headers styled correctly"
+
+[[steps]]
+name = "large_diff_1000_lines"
+type = "positive"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "stress"]
+group = "resource-exhaustion"
+description = "Create a diff with 1000 lines of mixed prefixes, render message detail — verify all lines classified correctly and no performance degradation."
+acceptance_criteria_ref = "PLAN-01 criterion: prefix-matching on &str, no external crate"
+
+[[steps]]
+name = "classify_line_unicode_content"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "stress"]
+group = "adversarial-input"
+description = "Pass diff lines with Unicode content after the prefix (e.g. '+こんにちは', '-émoji 🎉') — verify prefix classification still works correctly."
+acceptance_criteria_ref = "PLAN-01 criterion: starts_with handles UTF-8 safely"
+
+[[steps]]
+name = "classify_line_whitespace_only"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "stress"]
+group = "edge-case"
+description = "Pass a line of only whitespace — verify styled as muted (context fallback)."
+acceptance_criteria_ref = "PLAN-01 criterion: unrecognized prefixes → muted"
+
+[[steps]]
+name = "diff_with_no_hunk_headers"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "stress"]
+group = "edge-case"
+description = "Create a diff with file headers and added/removed lines but no @@ hunk headers — verify rendering does not panic and lines are classified correctly."
+acceptance_criteria_ref = "PLAN-01 criterion: classify_diff_line handles malformed diffs gracefully"
+
+[[steps]]
+name = "diff_with_crlf_line_endings"
+type = "edge"
+verification_layer = "integration-artifact-runtime"
+proof_depth = "functional"
+executor = "host-native"
+tags = ["diff-syntax-highlighting", "tui-detail-view", "stress"]
+group = "adversarial-input"
+description = "Create a diff with \\r\\n line endings — verify starts_with still classifies correctly (+ at position 0, not after \\r)."
+acceptance_criteria_ref = "PLAN-01 criterion: prefix matching on &str"
