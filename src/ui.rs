@@ -192,13 +192,14 @@ fn build_main_title(app: &App) -> String {
         .mailing_list
         .as_ref()
         .map_or(String::new(), |l| format!(" | list: {l}"));
+    let bookmark_indicator = if app.show_bookmarks_only { " | [B] bookmarks" } else { "" };
     if let Some(ref stats) = app.stats {
         format!(
-            " remendo | {remote} | v{} | {} pending | {} reviewing | {content_total} {content_label}{page_indicator}{search_indicator}{list_indicator} ",
+            " remendo | {remote} | v{} | {} pending | {} reviewing | {content_total} {content_label}{page_indicator}{search_indicator}{list_indicator}{bookmark_indicator} ",
             stats.version, stats.pending, stats.reviewing
         )
     } else {
-        format!(" remendo | {remote} | {content_total} {content_label}{page_indicator}{search_indicator}{list_indicator} ")
+        format!(" remendo | {remote} | {content_total} {content_label}{page_indicator}{search_indicator}{list_indicator}{bookmark_indicator} ")
     }
 }
 
@@ -241,6 +242,10 @@ fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, p
         .patchsets
         .items
         .iter()
+        .filter(|ps| {
+            !app.show_bookmarks_only
+                || app.bookmarks.contains(&app.active_remote, ps.id)
+        })
         .map(|ps| build_patchset_row(app, ps, palette))
         .collect();
 
@@ -510,6 +515,23 @@ fn render_message_table(
 }
 
 /// Render the message detail view.
+/// Classify a diff line by its leading prefix and return the appropriate style.
+fn classify_diff_line(line: &str, palette: &ColorPalette) -> Style {
+    if line.starts_with("+++") || line.starts_with("---")
+        || line.starts_with("diff ") || line.starts_with("index ")
+    {
+        Style::default().fg(palette.foreground.color()).bold()
+    } else if line.starts_with("@@") {
+        Style::default().fg(palette.accent.color()).bold()
+    } else if line.starts_with('+') {
+        Style::default().fg(palette.success.color())
+    } else if line.starts_with('-') {
+        Style::default().fg(palette.error.color())
+    } else {
+        Style::default().fg(palette.muted.color())
+    }
+}
+
 fn render_message_detail(app: &App, frame: &mut Frame, area: Rect, palette: &ColorPalette) {
     let border_color = panel_border_color(app.focus, FocusPanel::PatchsetList, palette);
 
@@ -581,10 +603,8 @@ fn render_message_detail(app: &App, frame: &mut Frame, area: Rect, palette: &Col
             Style::default().fg(palette.accent.color()).bold(),
         ));
         for diff_line in diff.lines() {
-            lines.push(Line::styled(
-                diff_line,
-                Style::default().fg(palette.muted.color()),
-            ));
+            let style = classify_diff_line(diff_line, palette);
+            lines.push(Line::styled(diff_line, style));
         }
     }
 
@@ -858,6 +878,22 @@ fn detail_patches_lines<'a>(
     lines.push(Line::raw(""));
 }
 
+/// Build a depth map from `in_reply_to` / `message_id` fields for thread indentation.
+fn build_depth_map(thread: &[crate::models::ThreadMessage]) -> std::collections::HashMap<String, usize> {
+    let mut map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for msg in thread {
+        let depth = match &msg.in_reply_to {
+            None => 0,
+            Some(parent_id) => map.get(parent_id.as_str()).map_or(1, |d| d + 1),
+        };
+        let depth = depth.min(5); // cap at 5 levels
+        if let Some(ref mid) = msg.message_id {
+            map.insert(mid.clone(), depth);
+        }
+    }
+    map
+}
+
 /// Build thread message lines for the detail view.
 fn detail_thread_lines<'a>(
     detail: &'a crate::models::PatchsetDetail,
@@ -875,19 +911,32 @@ fn detail_thread_lines<'a>(
             Style::default().fg(palette.muted.color()),
         ));
     } else {
+        let depth_map = build_depth_map(&detail.thread);
+
         for msg in &detail.thread {
+            let depth = msg.message_id.as_ref()
+                .and_then(|mid| depth_map.get(mid.as_str()))
+                .copied()
+                .unwrap_or(0);
+            let indent = "  ".repeat(depth); // 2 spaces per level
+
             let author = msg.author.as_deref().unwrap_or("(unknown)");
             let date = format_date(msg.date);
             let subj = msg.subject.as_deref().unwrap_or("(no subject)");
+
+            // Line 1: author + date (with indent prefix)
             lines.push(Line::from(vec![
+                Span::raw(indent.clone()),
                 Span::styled(author, Style::default().fg(palette.accent.color())),
                 Span::raw("  "),
                 Span::styled(date, Style::default().fg(palette.muted.color())),
             ]));
-            lines.push(Line::styled(
-                format!("  {subj}"),
-                Style::default().fg(palette.foreground.color()),
-            ));
+
+            // Line 2: subject (with indent prefix)
+            lines.push(Line::from(vec![
+                Span::raw(indent),
+                Span::styled(format!("  {subj}"), Style::default().fg(palette.foreground.color())),
+            ]));
         }
     }
 }
@@ -1049,5 +1098,197 @@ mod tests {
 
         let in_review = status_color(PatchsetStatus::InReview, &palette);
         assert_eq!(in_review.fg, Some(palette.accent.color()));
+    }
+
+    // --- diff-syntax-highlighting tests ---
+
+    #[test]
+    fn classify_diff_line_addition() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("+    x = compute();", &palette);
+        assert_eq!(style.fg, Some(palette.success.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_deletion() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("-    return 0;", &palette);
+        assert_eq!(style.fg, Some(palette.error.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_hunk_header() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("@@ -10,3 +10,4 @@ int main(void)", &palette);
+        assert_eq!(style.fg, Some(palette.accent.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_file_header_plus() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("+++ b/foo.c", &palette);
+        // File header, NOT addition — must be foreground bold
+        assert_eq!(style.fg, Some(palette.foreground.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_file_header_minus() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("--- a/foo.c", &palette);
+        // File header, NOT deletion — must be foreground bold
+        assert_eq!(style.fg, Some(palette.foreground.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_diff_header() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("diff --git a/foo.c b/foo.c", &palette);
+        assert_eq!(style.fg, Some(palette.foreground.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_index_header() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("index abc123..def456 100644", &palette);
+        assert_eq!(style.fg, Some(palette.foreground.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_context() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line(" int x = 0;", &palette);
+        assert_eq!(style.fg, Some(palette.muted.color()));
+    }
+
+    #[test]
+    fn classify_diff_line_empty() {
+        let palette = ColorPalette::default();
+        let style = classify_diff_line("", &palette);
+        assert_eq!(style.fg, Some(palette.muted.color()));
+    }
+
+    // --- thread-indentation tests ---
+
+    #[test]
+    fn build_depth_map_root_is_zero() {
+        use crate::models::ThreadMessage;
+        let thread = vec![ThreadMessage {
+            message_id: Some("root@example.com".to_string()),
+            in_reply_to: None,
+            ..ThreadMessage::fixture()
+        }];
+        let map = build_depth_map(&thread);
+        assert_eq!(map.get("root@example.com"), Some(&0));
+    }
+
+    #[test]
+    fn build_depth_map_reply_is_one() {
+        use crate::models::ThreadMessage;
+        let thread = vec![
+            ThreadMessage {
+                message_id: Some("root@example.com".to_string()),
+                in_reply_to: None,
+                ..ThreadMessage::fixture()
+            },
+            ThreadMessage {
+                message_id: Some("child@example.com".to_string()),
+                in_reply_to: Some("root@example.com".to_string()),
+                ..ThreadMessage::fixture()
+            },
+        ];
+        let map = build_depth_map(&thread);
+        assert_eq!(map.get("child@example.com"), Some(&1));
+    }
+
+    #[test]
+    fn build_depth_map_nested_three_levels() {
+        use crate::models::ThreadMessage;
+        let thread = vec![
+            ThreadMessage {
+                message_id: Some("a".to_string()),
+                in_reply_to: None,
+                ..ThreadMessage::fixture()
+            },
+            ThreadMessage {
+                message_id: Some("b".to_string()),
+                in_reply_to: Some("a".to_string()),
+                ..ThreadMessage::fixture()
+            },
+            ThreadMessage {
+                message_id: Some("c".to_string()),
+                in_reply_to: Some("b".to_string()),
+                ..ThreadMessage::fixture()
+            },
+        ];
+        let map = build_depth_map(&thread);
+        assert_eq!(map.get("a"), Some(&0));
+        assert_eq!(map.get("b"), Some(&1));
+        assert_eq!(map.get("c"), Some(&2));
+    }
+
+    #[test]
+    fn build_depth_map_capped_at_five() {
+        use crate::models::ThreadMessage;
+        let mut thread = Vec::new();
+        for i in 0..8 {
+            thread.push(ThreadMessage {
+                message_id: Some(format!("msg-{i}")),
+                in_reply_to: if i == 0 { None } else { Some(format!("msg-{}", i - 1)) },
+                ..ThreadMessage::fixture()
+            });
+        }
+        let map = build_depth_map(&thread);
+        assert_eq!(map.get("msg-5"), Some(&5));
+        assert_eq!(map.get("msg-6"), Some(&5)); // capped
+        assert_eq!(map.get("msg-7"), Some(&5)); // capped
+    }
+
+    #[test]
+    fn build_depth_map_orphan_is_one() {
+        use crate::models::ThreadMessage;
+        let thread = vec![ThreadMessage {
+            message_id: Some("orphan@example.com".to_string()),
+            in_reply_to: Some("nonexistent@example.com".to_string()),
+            ..ThreadMessage::fixture()
+        }];
+        let map = build_depth_map(&thread);
+        assert_eq!(map.get("orphan@example.com"), Some(&1));
+    }
+
+    #[test]
+    fn build_depth_map_no_message_id_not_in_map() {
+        use crate::models::ThreadMessage;
+        let thread = vec![ThreadMessage {
+            message_id: None,
+            in_reply_to: None,
+            ..ThreadMessage::fixture()
+        }];
+        let map = build_depth_map(&thread);
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn build_depth_map_siblings_same_depth() {
+        use crate::models::ThreadMessage;
+        let thread = vec![
+            ThreadMessage {
+                message_id: Some("parent".to_string()),
+                in_reply_to: None,
+                ..ThreadMessage::fixture()
+            },
+            ThreadMessage {
+                message_id: Some("sib-a".to_string()),
+                in_reply_to: Some("parent".to_string()),
+                ..ThreadMessage::fixture()
+            },
+            ThreadMessage {
+                message_id: Some("sib-b".to_string()),
+                in_reply_to: Some("parent".to_string()),
+                ..ThreadMessage::fixture()
+            },
+        ];
+        let map = build_depth_map(&thread);
+        assert_eq!(map.get("sib-a"), Some(&1));
+        assert_eq!(map.get("sib-b"), Some(&1));
     }
 }

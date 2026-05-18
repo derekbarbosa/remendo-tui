@@ -131,6 +131,7 @@ fn action_to_message(action: KeyAction) -> Option<Message> {
         KeyAction::PrevComment => Some(Message::PrevComment),
         KeyAction::ViewBaselineLog => Some(Message::ViewBaselineLog),
         KeyAction::ToggleListContent => Some(Message::ToggleListContent),
+        KeyAction::BookmarkFilter => Some(Message::ToggleBookmarkFilter),
         KeyAction::CycleSort => Some(Message::CycleSort),
         KeyAction::ReverseSort => Some(Message::ReverseSort),
     }
