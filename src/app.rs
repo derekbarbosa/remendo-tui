@@ -74,6 +74,10 @@ pub struct App {
     pub messages: Paginated<EmailMessage>,
     /// Loaded message detail for the message detail view.
     pub selected_message: Option<EmailMessage>,
+    /// Which column the patchset list is sorted by.
+    pub sort_column: SortColumn,
+    /// Current sort direction.
+    pub sort_direction: SortDirection,
 }
 
 impl App {
@@ -126,6 +130,8 @@ impl App {
                 per_page: 50,
             },
             selected_message: None,
+            sort_column: SortColumn::Default,
+            sort_direction: SortDirection::Ascending,
         }
     }
 
@@ -177,6 +183,32 @@ pub enum SidebarSection {
     Remotes,
     /// The mailing lists.
     MailingLists,
+}
+
+/// Which column the patchset list is sorted by.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum SortColumn {
+    /// API-returned order, no comparator applied.
+    #[default]
+    Default,
+    /// Sort by patchset status (lifecycle priority).
+    Status,
+    /// Sort by date.
+    Date,
+    /// Sort by total finding count.
+    Findings,
+    /// Sort by author name (lexicographic).
+    Author,
+}
+
+/// Sort direction for the patchset list.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum SortDirection {
+    /// Ascending order (A→Z, oldest→newest, lowest→highest).
+    #[default]
+    Ascending,
+    /// Descending order (Z→A, newest→oldest, highest→lowest).
+    Descending,
 }
 
 /// What content the list view is displaying.

@@ -5,7 +5,10 @@
 //! a mutable `App` reference and a `Message`, modifies state,
 //! and returns a `Cmd` describing any async side-effects to perform.
 
-use crate::app::{App, FocusPanel, InputMode, ListContent, RunningState, SidebarSection, ViewMode};
+use crate::app::{
+    App, FocusPanel, InputMode, ListContent, RunningState, SidebarSection, SortColumn,
+    SortDirection, ViewMode,
+};
 use crate::client::ApiError;
 use crate::client::types::ListParams;
 use crate::cmd::Cmd;
@@ -89,6 +92,10 @@ pub enum Message {
     MessagesLoaded(Result<Paginated<EmailMessage>, ApiError>),
     /// Message detail loaded from API.
     MessageDetailLoaded(Box<Result<EmailMessage, ApiError>>),
+    /// Cycle to the next sort column.
+    CycleSort,
+    /// Reverse the current sort direction.
+    ReverseSort,
 }
 
 /// Apply a message to the application state and return any
@@ -207,6 +214,8 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
         Message::ToggleListContent => handle_toggle_list_content(app),
         Message::MessagesLoaded(result) => handle_messages_loaded(app, result),
         Message::MessageDetailLoaded(result) => handle_message_detail_loaded(app, *result),
+        Message::CycleSort => handle_sort_cycle(app),
+        Message::ReverseSort => handle_reverse_sort(app),
     }
 }
 
@@ -241,6 +250,8 @@ fn log_message(msg: &Message, app: &App) {
         Message::PrevComment => tracing::debug!("prev comment"),
         Message::ViewBaselineLog => tracing::debug!("view baseline log"),
         Message::ToggleListContent => tracing::debug!("toggle list content"),
+        Message::CycleSort => tracing::debug!("cycle sort"),
+        Message::ReverseSort => tracing::debug!("reverse sort"),
         // API results logged in their handlers; Quit logged in update()
         Message::PatchsetsLoaded(_)
         | Message::PatchsetDetailLoaded(_)
@@ -601,6 +612,7 @@ fn handle_patchsets_loaded(app: &mut App, result: Result<Paginated<Patchset>, Ap
             );
             app.patchsets = paginated;
             app.error_state = None;
+            apply_sort(app);
         }
         Err(ref e) => {
             tracing::error!(error = %e, "patchsets load failed");
@@ -830,6 +842,78 @@ fn handle_sidebar_select(app: &mut App) -> Cmd {
     }
 }
 
+/// Map a `PatchsetStatus` to a sort key (lifecycle priority order).
+fn status_sort_key(s: crate::models::PatchsetStatus) -> u8 {
+    use crate::models::PatchsetStatus;
+    match s {
+        PatchsetStatus::FailedToApply => 0,
+        PatchsetStatus::Failed => 1,
+        PatchsetStatus::Incomplete => 2,
+        PatchsetStatus::Pending => 3,
+        PatchsetStatus::InReview => 4,
+        PatchsetStatus::Cancelled => 5,
+        PatchsetStatus::Skipped => 6,
+        PatchsetStatus::Reviewed => 7,
+        PatchsetStatus::Unknown => 8,
+    }
+}
+
+/// Sort `app.patchsets.items` in-place by the active sort column and direction.
+pub fn apply_sort(app: &mut App) {
+    let asc = app.sort_direction == SortDirection::Ascending;
+    match app.sort_column {
+        SortColumn::Default => {} // preserve API order
+        SortColumn::Status => app.patchsets.items.sort_by(|a, b| {
+            let ord = status_sort_key(a.status).cmp(&status_sort_key(b.status));
+            if asc { ord } else { ord.reverse() }
+        }),
+        SortColumn::Date => app.patchsets.items.sort_by(|a, b| {
+            // None sorts last regardless of direction
+            let ord = match (a.date, b.date) {
+                (None, None) => std::cmp::Ordering::Equal,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (Some(da), Some(db)) => da.cmp(&db),
+            };
+            if asc { ord } else { ord.reverse() }
+        }),
+        SortColumn::Findings => app.patchsets.items.sort_by(|a, b| {
+            let ord = a.findings.total().cmp(&b.findings.total());
+            if asc { ord } else { ord.reverse() }
+        }),
+        SortColumn::Author => app.patchsets.items.sort_by(|a, b| {
+            let ord = a.author().cmp(b.author());
+            if asc { ord } else { ord.reverse() }
+        }),
+    }
+}
+
+/// Advance the sort column to the next variant and reset direction.
+fn handle_sort_cycle(app: &mut App) -> Cmd {
+    app.sort_column = match app.sort_column {
+        SortColumn::Default => SortColumn::Status,
+        SortColumn::Status => SortColumn::Date,
+        SortColumn::Date => SortColumn::Findings,
+        SortColumn::Findings => SortColumn::Author,
+        SortColumn::Author => SortColumn::Default,
+    };
+    app.sort_direction = SortDirection::Ascending;
+    app.selected_index = 0;
+    apply_sort(app);
+    Cmd::None
+}
+
+/// Toggle the sort direction without changing the column.
+fn handle_reverse_sort(app: &mut App) -> Cmd {
+    app.sort_direction = match app.sort_direction {
+        SortDirection::Ascending => SortDirection::Descending,
+        SortDirection::Descending => SortDirection::Ascending,
+    };
+    app.selected_index = 0;
+    apply_sort(app);
+    Cmd::None
+}
+
 /// Switch the active remote to the given index, clear patchset data,
 /// and return a fetch command batch.
 fn switch_remote(app: &mut App, new_index: usize) -> Cmd {
@@ -859,6 +943,8 @@ fn switch_remote(app: &mut App, new_index: usize) -> Cmd {
     app.messages.items.clear();
     app.messages.total = 0;
     app.selected_message = None;
+    app.sort_column = SortColumn::Default;
+    app.sort_direction = SortDirection::Ascending;
     Cmd::Batch(vec![
         Cmd::FetchPatchsets(app.list_params.clone()),
         Cmd::FetchLists,
@@ -1451,5 +1537,265 @@ mod tests {
         app.selected_detail = Some(detail);
         let cmd = update(&mut app, Message::ViewRawLog);
         assert!(matches!(cmd, Cmd::None));
+    }
+
+    // --- column-sorting tests ---
+
+    #[test]
+    fn cycle_sort_advances_column() {
+        let mut app = App::new(Config::default());
+        assert_eq!(app.sort_column, SortColumn::Default);
+
+        update(&mut app, Message::CycleSort);
+        assert_eq!(app.sort_column, SortColumn::Status);
+
+        update(&mut app, Message::CycleSort);
+        assert_eq!(app.sort_column, SortColumn::Date);
+
+        update(&mut app, Message::CycleSort);
+        assert_eq!(app.sort_column, SortColumn::Findings);
+
+        update(&mut app, Message::CycleSort);
+        assert_eq!(app.sort_column, SortColumn::Author);
+
+        update(&mut app, Message::CycleSort);
+        assert_eq!(app.sort_column, SortColumn::Default);
+    }
+
+    #[test]
+    fn cycle_sort_resets_direction() {
+        let mut app = App::new(Config::default());
+        app.sort_direction = SortDirection::Descending;
+        update(&mut app, Message::CycleSort);
+        assert_eq!(app.sort_direction, SortDirection::Ascending);
+    }
+
+    #[test]
+    fn cycle_sort_resets_selected_index() {
+        let mut app = App::new(Config::default());
+        app.selected_index = 5;
+        update(&mut app, Message::CycleSort);
+        assert_eq!(app.selected_index, 0);
+    }
+
+    #[test]
+    fn reverse_sort_toggles_direction() {
+        let mut app = App::new(Config::default());
+        assert_eq!(app.sort_direction, SortDirection::Ascending);
+
+        update(&mut app, Message::ReverseSort);
+        assert_eq!(app.sort_direction, SortDirection::Descending);
+
+        update(&mut app, Message::ReverseSort);
+        assert_eq!(app.sort_direction, SortDirection::Ascending);
+    }
+
+    #[test]
+    fn reverse_sort_keeps_column() {
+        let mut app = App::new(Config::default());
+        app.sort_column = SortColumn::Date;
+        update(&mut app, Message::ReverseSort);
+        assert_eq!(app.sort_column, SortColumn::Date);
+    }
+
+    #[test]
+    fn reverse_sort_resets_selected_index() {
+        let mut app = App::new(Config::default());
+        app.selected_index = 3;
+        update(&mut app, Message::ReverseSort);
+        assert_eq!(app.selected_index, 0);
+    }
+
+    #[test]
+    fn sort_applied_on_patchsets_loaded() {
+        let mut app = App::new(Config::default());
+        app.sort_column = SortColumn::Date;
+        app.sort_direction = SortDirection::Ascending;
+
+        let mut ps1 = Patchset::fixture();
+        ps1.date = Some(200);
+        let mut ps2 = Patchset::fixture();
+        ps2.date = Some(100);
+
+        let paginated = Paginated {
+            items: vec![ps1, ps2],
+            total: 2,
+            page: 1,
+            per_page: 50,
+        };
+        update(&mut app, Message::PatchsetsLoaded(Ok(paginated)));
+        // After sort by date ascending, date=100 should be first
+        assert_eq!(app.patchsets.items[0].date, Some(100));
+        assert_eq!(app.patchsets.items[1].date, Some(200));
+    }
+
+    #[test]
+    fn switch_remote_resets_sort() {
+        let mut config = Config::default();
+        config
+            .remotes
+            .push(crate::config::RemoteConfig::fixture("r1"));
+        config
+            .remotes
+            .push(crate::config::RemoteConfig::fixture("r2"));
+        let mut app = App::new(config);
+        app.sort_column = SortColumn::Status;
+        app.sort_direction = SortDirection::Descending;
+        update(&mut app, Message::NextMailbox);
+        assert_eq!(app.sort_column, SortColumn::Default);
+        assert_eq!(app.sort_direction, SortDirection::Ascending);
+    }
+
+    #[test]
+    fn status_sort_key_is_exhaustive_and_ordered() {
+        use crate::models::PatchsetStatus;
+        let keys: Vec<u8> = vec![
+            status_sort_key(PatchsetStatus::FailedToApply),
+            status_sort_key(PatchsetStatus::Failed),
+            status_sort_key(PatchsetStatus::Incomplete),
+            status_sort_key(PatchsetStatus::Pending),
+            status_sort_key(PatchsetStatus::InReview),
+            status_sort_key(PatchsetStatus::Cancelled),
+            status_sort_key(PatchsetStatus::Skipped),
+            status_sort_key(PatchsetStatus::Reviewed),
+            status_sort_key(PatchsetStatus::Unknown),
+        ];
+        // All distinct
+        let mut sorted = keys.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(sorted.len(), 9);
+        // Monotonically increasing
+        for i in 1..keys.len() {
+            assert!(keys[i] > keys[i - 1]);
+        }
+    }
+
+    #[test]
+    fn apply_sort_default_is_noop() {
+        let mut app = App::new(Config::default());
+        let mut ps1 = Patchset::fixture();
+        ps1.id = 1;
+        ps1.date = Some(200);
+        let mut ps2 = Patchset::fixture();
+        ps2.id = 2;
+        ps2.date = Some(100);
+        app.patchsets.items = vec![ps1, ps2];
+        app.sort_column = SortColumn::Default;
+        apply_sort(&mut app);
+        // Order preserved
+        assert_eq!(app.patchsets.items[0].id, 1);
+        assert_eq!(app.patchsets.items[1].id, 2);
+    }
+
+    #[test]
+    fn sort_by_status_ascending() {
+        let mut app = App::new(Config::default());
+        let mut ps1 = Patchset::fixture();
+        ps1.status = crate::models::PatchsetStatus::Reviewed; // key 7
+        let mut ps2 = Patchset::fixture();
+        ps2.status = crate::models::PatchsetStatus::FailedToApply; // key 0
+        app.patchsets.items = vec![ps1, ps2];
+        app.sort_column = SortColumn::Status;
+        app.sort_direction = SortDirection::Ascending;
+        apply_sort(&mut app);
+        assert_eq!(
+            app.patchsets.items[0].status,
+            crate::models::PatchsetStatus::FailedToApply
+        );
+        assert_eq!(
+            app.patchsets.items[1].status,
+            crate::models::PatchsetStatus::Reviewed
+        );
+    }
+
+    #[test]
+    fn sort_by_findings_descending() {
+        let mut app = App::new(Config::default());
+        let mut ps1 = Patchset::fixture();
+        ps1.findings = crate::models::FindingCounts {
+            low: 1,
+            medium: 0,
+            high: 0,
+            critical: 0,
+        }; // total=1
+        let mut ps2 = Patchset::fixture();
+        ps2.findings = crate::models::FindingCounts {
+            low: 5,
+            medium: 3,
+            high: 0,
+            critical: 0,
+        }; // total=8
+        app.patchsets.items = vec![ps1, ps2];
+        app.sort_column = SortColumn::Findings;
+        app.sort_direction = SortDirection::Descending;
+        apply_sort(&mut app);
+        assert_eq!(app.patchsets.items[0].findings.total(), 8);
+        assert_eq!(app.patchsets.items[1].findings.total(), 1);
+    }
+
+    #[test]
+    fn sort_by_author_ascending() {
+        let mut app = App::new(Config::default());
+        let mut ps1 = Patchset::fixture();
+        ps1.author = Some("zebra@example.com".to_string());
+        let mut ps2 = Patchset::fixture();
+        ps2.author = Some("alice@example.com".to_string());
+        app.patchsets.items = vec![ps1, ps2];
+        app.sort_column = SortColumn::Author;
+        app.sort_direction = SortDirection::Ascending;
+        apply_sort(&mut app);
+        assert_eq!(
+            app.patchsets.items[0].author.as_deref(),
+            Some("alice@example.com")
+        );
+        assert_eq!(
+            app.patchsets.items[1].author.as_deref(),
+            Some("zebra@example.com")
+        );
+    }
+
+    #[test]
+    fn sort_by_date_none_sorts_last() {
+        let mut app = App::new(Config::default());
+        let mut ps1 = Patchset::fixture();
+        ps1.id = 1;
+        ps1.date = None;
+        let mut ps2 = Patchset::fixture();
+        ps2.id = 2;
+        ps2.date = Some(100);
+        let mut ps3 = Patchset::fixture();
+        ps3.id = 3;
+        ps3.date = Some(200);
+        app.patchsets.items = vec![ps1, ps2, ps3];
+        app.sort_column = SortColumn::Date;
+        app.sort_direction = SortDirection::Ascending;
+        apply_sort(&mut app);
+        // date=100 first, date=200 second, None last
+        assert_eq!(app.patchsets.items[0].date, Some(100));
+        assert_eq!(app.patchsets.items[1].date, Some(200));
+        assert_eq!(app.patchsets.items[2].date, None);
+    }
+
+    #[test]
+    fn sort_stability_equal_keys() {
+        let mut app = App::new(Config::default());
+        let mut ps1 = Patchset::fixture();
+        ps1.id = 10;
+        ps1.date = Some(100);
+        let mut ps2 = Patchset::fixture();
+        ps2.id = 20;
+        ps2.date = Some(100); // same date
+        let mut ps3 = Patchset::fixture();
+        ps3.id = 30;
+        ps3.date = Some(100); // same date
+        app.patchsets.items = vec![ps1, ps2, ps3];
+        app.sort_column = SortColumn::Date;
+        app.sort_direction = SortDirection::Ascending;
+        apply_sort(&mut app);
+        // Stable sort preserves original API order for equal keys
+        assert_eq!(app.patchsets.items[0].id, 10);
+        assert_eq!(app.patchsets.items[1].id, 20);
+        assert_eq!(app.patchsets.items[2].id, 30);
     }
 }

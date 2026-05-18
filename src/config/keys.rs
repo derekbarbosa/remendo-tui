@@ -56,6 +56,10 @@ pub enum KeyAction {
     ViewBaselineLog,
     /// Toggle between patchset and message list views.
     ToggleListContent,
+    /// Cycle the sort column in the patchset list.
+    CycleSort,
+    /// Reverse the sort direction in the patchset list.
+    ReverseSort,
 }
 
 impl KeyAction {
@@ -84,6 +88,8 @@ impl KeyAction {
             Self::PrevPage => "Prev page",
             Self::ViewBaselineLog => "View baseline log",
             Self::ToggleListContent => "Toggle messages",
+            Self::CycleSort => "Cycle sort column",
+            Self::ReverseSort => "Reverse sort",
         }
     }
 }
@@ -239,6 +245,8 @@ fn parse_action(s: &str) -> Option<KeyAction> {
         "prev_page" => KeyAction::PrevPage,
         "view_baseline_log" => KeyAction::ViewBaselineLog,
         "toggle_list_content" => KeyAction::ToggleListContent,
+        "cycle_sort" => KeyAction::CycleSort,
+        "reverse_sort" => KeyAction::ReverseSort,
         _ => return None,
     })
 }
@@ -282,6 +290,8 @@ impl Default for KeybindingsConfig {
             ("prev_page", "["),
             ("view_baseline_log", "L"),
             ("toggle_list_content", "m"),
+            ("cycle_sort", "s"),
+            ("reverse_sort", "S"),
         ];
 
         let mut bindings = HashMap::new();
