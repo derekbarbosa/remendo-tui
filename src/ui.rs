@@ -4,7 +4,7 @@
 //! This module contains no state mutation — it is a pure
 //! function of `App` → visual output.
 
-use crate::app::{App, FocusPanel, InputMode, ListContent, ViewMode};
+use crate::app::{App, FocusPanel, InputMode, ListContent, SortColumn, SortDirection, ViewMode};
 use crate::config::theme::ColorPalette;
 use crate::models::{FindingCounts, PatchsetStatus};
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -244,14 +244,25 @@ fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, p
         .map(|ps| build_patchset_row(app, ps, palette))
         .collect();
 
+    let sort_header = |label: &str, col: SortColumn| -> String {
+        if app.sort_column == col {
+            match app.sort_direction {
+                SortDirection::Ascending => format!("{label} \u{25b2}"),
+                SortDirection::Descending => format!("{label} \u{25bc}"),
+            }
+        } else {
+            label.to_string()
+        }
+    };
+
     let header = Row::new(vec![
         Cell::from(""),
-        Cell::from("Status"),
-        Cell::from("Subject"),
-        Cell::from("Author"),
-        Cell::from("Date"),
-        Cell::from("Findings"),
-        Cell::from("Subsystems"),
+        Cell::from(sort_header("Status", SortColumn::Status)),
+        Cell::from("Subject".to_string()),
+        Cell::from(sort_header("Author", SortColumn::Author)),
+        Cell::from(sort_header("Date", SortColumn::Date)),
+        Cell::from(sort_header("Findings", SortColumn::Findings)),
+        Cell::from("Subsystems".to_string()),
     ])
     .style(Style::default().fg(palette.accent.color()).bold());
 
