@@ -2,7 +2,7 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
-use remendo_tui::app::{App, FocusPanel, RunningState, ViewMode};
+use remendo_tui::app::{App, FocusPanel, RunningState, SortColumn, SortDirection, ViewMode};
 use remendo_tui::client::ApiError;
 use remendo_tui::cmd::Cmd;
 use remendo_tui::config::{Config, RemoteConfig};
@@ -473,4 +473,145 @@ fn esc_during_loading_returns_to_list() {
     update(&mut app, Message::Back);
     assert_eq!(app.view_mode, ViewMode::List);
     assert!(app.loading_context.is_none());
+}
+
+// --- series7 cross-feature integration tests ---
+
+#[test]
+fn sort_then_bookmark_filter_compose_order() {
+    let mut app = app_with_remotes(&["upstream"]);
+
+    // Load patchsets with different dates
+    let mut ps1 = Patchset::fixture();
+    ps1.id = 1;
+    ps1.date = Some(300);
+    let mut ps2 = Patchset::fixture();
+    ps2.id = 2;
+    ps2.date = Some(100);
+    let mut ps3 = Patchset::fixture();
+    ps3.id = 3;
+    ps3.date = Some(200);
+
+    let paginated = Paginated {
+        items: vec![ps1, ps2, ps3],
+        total: 3,
+        page: 1,
+        per_page: 50,
+    };
+    update(&mut app, Message::PatchsetsLoaded(Ok(paginated)));
+
+    // Bookmark only patchset 1 and 3
+    app.bookmarks.toggle("upstream", 1);
+    app.bookmarks.toggle("upstream", 3);
+
+    // Sort by date ascending
+    update(&mut app, Message::CycleSort); // Default -> Status
+    update(&mut app, Message::CycleSort); // Status -> Date
+    assert_eq!(app.sort_column, SortColumn::Date);
+
+    // After sort: items should be [id=2(100), id=3(200), id=1(300)]
+    assert_eq!(app.patchsets.items[0].id, 2);
+    assert_eq!(app.patchsets.items[1].id, 3);
+    assert_eq!(app.patchsets.items[2].id, 1);
+
+    // Toggle bookmark filter
+    update(&mut app, Message::ToggleBookmarkFilter);
+    assert!(app.show_bookmarks_only);
+
+    // The filter is applied at render time, not in update.
+    // Verify the underlying items are still sorted and the filter flag is set.
+    // The render path applies: items.iter().filter(bookmarked).map(build_row)
+    // so visible rows should be id=3(200), id=1(300) in sort order.
+    assert_eq!(app.patchsets.items.len(), 3); // all items still present
+    assert!(app.bookmarks.contains("upstream", 1));
+    assert!(!app.bookmarks.contains("upstream", 2));
+    assert!(app.bookmarks.contains("upstream", 3));
+}
+
+#[test]
+fn bookmark_filter_then_sort_change() {
+    let mut app = app_with_remotes(&["upstream"]);
+
+    let mut ps1 = Patchset::fixture();
+    ps1.id = 1;
+    ps1.author = Some("zebra@example.com".to_string());
+    let mut ps2 = Patchset::fixture();
+    ps2.id = 2;
+    ps2.author = Some("alice@example.com".to_string());
+
+    let paginated = Paginated {
+        items: vec![ps1, ps2],
+        total: 2,
+        page: 1,
+        per_page: 50,
+    };
+    update(&mut app, Message::PatchsetsLoaded(Ok(paginated)));
+
+    // Bookmark both
+    app.bookmarks.toggle("upstream", 1);
+    app.bookmarks.toggle("upstream", 2);
+
+    // Toggle filter on first
+    update(&mut app, Message::ToggleBookmarkFilter);
+    assert!(app.show_bookmarks_only);
+
+    // Now sort by Author ascending
+    update(&mut app, Message::CycleSort); // Default -> Status
+    update(&mut app, Message::CycleSort); // Status -> Date
+    update(&mut app, Message::CycleSort); // Date -> Findings
+    update(&mut app, Message::CycleSort); // Findings -> Author
+    assert_eq!(app.sort_column, SortColumn::Author);
+
+    // Items should be re-sorted: alice first, zebra second
+    assert_eq!(app.patchsets.items[0].author.as_deref(), Some("alice@example.com"));
+    assert_eq!(app.patchsets.items[1].author.as_deref(), Some("zebra@example.com"));
+    // Filter still active
+    assert!(app.show_bookmarks_only);
+}
+
+#[test]
+fn switch_remote_resets_both_sort_and_filter() {
+    let mut app = app_with_remotes(&["r1", "r2"]);
+    app.sort_column = SortColumn::Findings;
+    app.sort_direction = SortDirection::Descending;
+    app.show_bookmarks_only = true;
+
+    update(&mut app, Message::NextMailbox);
+
+    assert_eq!(app.sort_column, SortColumn::Default);
+    assert_eq!(app.sort_direction, SortDirection::Ascending);
+    assert!(!app.show_bookmarks_only);
+}
+
+#[test]
+fn page_load_preserves_sort_and_filter() {
+    let mut app = app_with_remotes(&["upstream"]);
+
+    // Set up sort and filter
+    update(&mut app, Message::CycleSort); // Default -> Status
+    update(&mut app, Message::ToggleBookmarkFilter);
+    assert_eq!(app.sort_column, SortColumn::Status);
+    assert!(app.show_bookmarks_only);
+
+    // Load new page of patchsets
+    let mut ps1 = Patchset::fixture();
+    ps1.status = remendo_tui::models::PatchsetStatus::Reviewed;
+    let mut ps2 = Patchset::fixture();
+    ps2.status = remendo_tui::models::PatchsetStatus::FailedToApply;
+
+    let paginated = Paginated {
+        items: vec![ps1, ps2],
+        total: 2,
+        page: 2,
+        per_page: 50,
+    };
+    update(&mut app, Message::PatchsetsLoaded(Ok(paginated)));
+
+    // Sort should have been reapplied: FailedToApply (key=0) before Reviewed (key=7)
+    assert_eq!(app.patchsets.items[0].status, remendo_tui::models::PatchsetStatus::FailedToApply);
+    assert_eq!(app.patchsets.items[1].status, remendo_tui::models::PatchsetStatus::Reviewed);
+    // Filter flag still active
+    assert!(app.show_bookmarks_only);
+    // Sort column preserved
+    assert_eq!(app.sort_column, SortColumn::Status);
 }
