@@ -1,0 +1,196 @@
+/* remendo denim theme override for llvm-cov HTML reports */
+
+:root {
+  color-scheme: dark;
+  --denim-dark:   #1a2a3a;
+  --denim-mid:    #2c4a6e;
+  --denim-light:  #4a7ab5;
+  --thread-white: #e8e0d4;
+  --thread-gold:  #c4a35a;
+  --tux-orange:   #e8943a;
+  --text-muted:   #9ab0c8;
+  --card-bg:      #1e3450;
+  --card-border:  #5a8ab5;
+}
+
+/* ── Base ─────────────────────────────────── */
+body {
+  font-family: 'Courier New', 'Consolas', 'Liberation Mono', monospace !important;
+  background-color: var(--denim-dark) !important;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(74,122,181,0.08) 2px, rgba(74,122,181,0.08) 3px),
+    repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(90,138,197,0.06) 3px, rgba(90,138,197,0.06) 4px),
+    repeating-linear-gradient(135deg, transparent, transparent 4px, rgba(44,74,110,0.15) 4px, rgba(44,74,110,0.15) 5px) !important;
+  color: var(--thread-white) !important;
+  padding: 2rem 1rem !important;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── Headings ─────────────────────────────── */
+h2 {
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+  color: var(--thread-white);
+  text-transform: lowercase;
+}
+
+h4 {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+  margin-bottom: 0.5rem;
+}
+
+h5 {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.5;
+  margin-top: 2rem;
+}
+
+p { color: var(--text-muted); }
+
+a { color: var(--tux-orange) !important; }
+a:hover { text-decoration: underline; }
+
+/* ── Summary table ────────────────────────── */
+.centered {
+  border: 2px dashed var(--card-border) !important;
+  border-radius: 4px !important;
+  background: var(--card-bg);
+  width: 100%;
+}
+
+table {
+  width: 100%;
+  font-size: 0.82rem;
+}
+
+th, td {
+  border-color: rgba(90,138,197,0.2) !important;
+  padding: 0.5rem 0.8rem !important;
+}
+
+/* Header row */
+.column-entry-bold {
+  background: var(--denim-mid) !important;
+  color: var(--thread-white) !important;
+  border-bottom: 2px dashed var(--thread-gold) !important;
+  font-size: 0.8rem;
+}
+
+/* Coverage cells — denim-appropriate colors */
+.column-entry-green {
+  background-color: rgba(68, 204, 17, 0.12) !important;
+  color: #6cbf4c !important;
+}
+
+.column-entry-yellow {
+  background-color: rgba(196, 163, 90, 0.12) !important;
+  color: var(--thread-gold) !important;
+}
+
+.column-entry-red {
+  background-color: rgba(224, 93, 68, 0.12) !important;
+  color: #e05d44 !important;
+}
+
+.column-entry-gray {
+  background-color: rgba(90, 138, 197, 0.06) !important;
+  color: var(--text-muted) !important;
+}
+
+/* Data rows */
+.light-row {
+  border-color: rgba(90,138,197,0.15) !important;
+}
+
+.light-row:hover {
+  background-color: rgba(90,138,197,0.08) !important;
+}
+
+.light-row-bold {
+  border-color: rgba(90,138,197,0.15) !important;
+  background-color: rgba(90,138,197,0.06) !important;
+}
+
+.light-row td pre,
+.light-row-bold td pre {
+  color: var(--thread-white);
+}
+
+.light-row td pre a {
+  color: var(--tux-orange) !important;
+}
+
+/* ── Source file views ────────────────────── */
+.source-name-title {
+  background-color: var(--denim-mid) !important;
+  border-bottom-color: var(--thread-gold) !important;
+  color: var(--thread-white) !important;
+  padding: 8px 12px !important;
+}
+
+.line-number {
+  color: var(--text-muted) !important;
+  opacity: 0.5;
+}
+
+.covered-line {
+  color: #5aabff !important;
+}
+
+.uncovered-line {
+  color: #e05d44 !important;
+}
+
+pre {
+  color: var(--thread-white);
+}
+
+.red {
+  background-color: rgba(224, 93, 68, 0.15) !important;
+}
+
+.cyan {
+  background-color: rgba(90, 138, 197, 0.2) !important;
+}
+
+.expansion-view {
+  border-color: rgba(90,138,197,0.3) !important;
+  background: var(--card-bg);
+}
+
+.tooltip {
+  background-color: var(--denim-mid) !important;
+}
+
+/* ── Controls overlay ─────────────────────── */
+.control {
+  background: rgba(26, 42, 58, 0.9) !important;
+  border: 1px dashed var(--card-border);
+  border-radius: 4px;
+  color: var(--thread-white);
+}
+
+/* ── Remove default dark mode (we handle it) ── */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: var(--denim-dark) !important;
+    color: var(--thread-white) !important;
+  }
+  tr:hover {
+    background-color: rgba(90,138,197,0.08) !important;
+  }
+  .covered-line {
+    color: #5aabff !important;
+  }
+  .uncovered-line {
+    color: #e05d44 !important;
+  }
+  .control {
+    background: rgba(26, 42, 58, 0.9) !important;
+  }
+}

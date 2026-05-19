@@ -1,15 +1,27 @@
-# remendo
+<div align="center">
+<h1> Remendo </h1>
 
-![Remendo Logo](static/assets/remendo-logo.png)
+![Remendo Logo](static/assets/remendo-patch-medium.png)
+</div>
+
+<div align="center">
+
+[![CRAP score](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fderekbarbosa.github.io%2Fremendo-tui%2Fcrap-badge.json&query=%24.message&label=CRAP&color=green)](https://derekbarbosa.github.io/remendo-tui/coverage/) [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+
+![GitHub Pull Requests](https://img.shields.io/github/issues-pr/derekbarbosa/remendo-tui) ![GitHub Issues](https://img.shields.io/github/issues/derekbarbosa/remendo-tui) ![GitHub License](https://img.shields.io/github/license/derekbarbosa/remendo-tui) ![GitHub last commit](https://img.shields.io/github/last-commit/derekbarbosa/remendo-tui)
+
+</div>
 
 > "Remendo" is a Portuguese word that translates to *patch*, *mend*, or *repair*.
 > It refers to a piece of material used to cover a hole or strengthen a damaged
-> area -- much like the kernel patches this tool helps you review.
+> area
 
 `remendo` is a terminal-based interface for viewing
-[Sashiko](https://sashiko.dev/) patch reviews. Inspired by mutt and other
-terminal mail user agents, it lets you monitor and navigate AI-generated Linux
-kernel code reviews across multiple Sashiko instances from a single viewport.
+[Sashiko](https://sashiko.dev/) patch reviews.
+
+Inspired by mutt and other terminal mail user agents, it lets you monitor and
+navigate AI-generated Linux kernel code reviews across multiple Sashiko
+instances from a single viewport.
 
 ## Why?
 
@@ -154,11 +166,15 @@ Falls back to `RUST_LOG` if `REMENDO_LOG` is not set.
 - Comment navigation in detail view (`n`/`N` to jump between reviews)
 - In-memory API response caching with configurable TTL
 - File-based debug logging via `REMENDO_LOG`
-- 260+ unit and integration tests
+- Column sorting (`s`/`S`) and bookmark filtering (`B`)
+- Diff syntax highlighting in detail and review views
+- 316 unit, integration, and doc tests
+- CRAP score analysis with CI regression detection
 
-Next priorities: authentication support (wiring the existing `auth_env`
-config), review API integration (surfacing the `/api/review` and
-`/api/review_log` endpoints), and disk-based cache persistence.
+Next priorities: surfacing review data in the TUI (the Sashiko review
+API client is already implemented), authentication token injection, and
+disk-based cache persistence. See `apogee_artifacts/features/ROADMAP.md`
+for the full series plan.
 
 ## Requirements
 
