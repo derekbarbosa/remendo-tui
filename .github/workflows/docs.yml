@@ -1,6 +1,6 @@
-name: Docs
+name: Docs & Coverage
 
-# Build and deploy rustdoc to GitHub Pages on push to main
+# Build and deploy rustdoc + llvm-cov HTML to GitHub Pages on push to main
 on:
   push:
     branches: [main]
@@ -20,28 +20,42 @@ env:
 
 jobs:
   build:
-    name: Build Documentation
+    name: Build Documentation & Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-llvm-cov
 
+      # Build rustdoc into target/doc/
       - name: Build rustdoc
         run: cargo doc --no-deps --document-private-items
         env:
           RUSTDOCFLAGS: "--cfg docsrs -D warnings"
 
-      # GitHub Pages needs an index.html at the root — redirect to the crate docs
-      - name: Create redirect index
+      # Build llvm-cov HTML report into target/llvm-cov/html/
+      - name: Build coverage report
+        run: cargo llvm-cov --all-targets --no-fail-fast --html --output-dir target/llvm-cov
+
+      # Assemble the Pages site:
+      #   /            -> index.html (links to both)
+      #   /rustdoc/    -> rustdoc output
+      #   /coverage/   -> llvm-cov HTML output
+      - name: Assemble Pages site
         run: |
-          echo '<meta http-equiv="refresh" content="0; url=remendo_tui/index.html">' \
-            > target/doc/index.html
+          mkdir -p target/pages/rustdoc
+          mkdir -p target/pages/coverage
+          cp .github/pages/index.html target/pages/index.html
+          cp -r target/doc/* target/pages/rustdoc/
+          cp -r target/llvm-cov/html/* target/pages/coverage/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: target/doc
+          path: target/pages
 
   deploy:
     name: Deploy to GitHub Pages
