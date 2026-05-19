@@ -535,29 +535,39 @@ fn classify_diff_line(line: &str, palette: &ColorPalette) -> Style {
     }
 }
 
-/// Classify a line from an LKML-formatted inline review.
+/// Classify a line from an LKML-formatted inline review with context
+/// about whether we've seen quoted diff content yet.
 ///
-/// Inline reviews interleave `>`-quoted diff content with unquoted
-/// reviewer commentary. This function distinguishes:
+/// Inline reviews have a three-part structure:
 ///
-/// - **Quoted diff lines** (`> +`, `> -`, `> @@`, `> +++`, etc.) —
-///   colored by diff role (green/red/cyan/bold)
-/// - **Quoted context** (`>  context`) — `muted`
-/// - **Reviewer commentary** (unquoted prose) — `foreground`
-/// - **Empty lines** — no style (visual separator)
-fn classify_review_line(line: &str, palette: &ColorPalette) -> Style {
+/// 1. **Patch metadata/summary** — unquoted lines *before* any `>`-quoted
+///    diff (commit hash, Author:, Subject:, description, Links).
+///    Styled as `muted`.
+///
+/// 2. **Quoted diff** — lines with `>` prefix containing patch content.
+///    Classified by diff role (green/red/cyan/bold/muted).
+///
+/// 3. **Reviewer commentary** — unquoted lines *after* the first `>`-quoted
+///    section. This is the LLM's analysis. Styled as `foreground`.
+///
+/// The `seen_quoted` flag tracks whether any `>`-quoted line has been
+/// encountered. Before that, unquoted text is patch context. After,
+/// unquoted text is reviewer commentary.
+fn classify_review_line(line: &str, seen_quoted: bool, palette: &ColorPalette) -> Style {
     if line.is_empty() {
         return Style::default();
     }
 
-    let is_quoted = line.starts_with('>');
-    if is_quoted {
-        // Strip email quoting, then classify the inner diff content
+    if line.starts_with('>') {
+        // Quoted content — strip quoting and classify as diff
         let stripped = strip_email_quoting(line);
         classify_diff_line(stripped, palette)
-    } else {
-        // Unquoted text is the reviewer's own commentary
+    } else if seen_quoted {
+        // Unquoted after we've seen quoted content — reviewer commentary
         Style::default().fg(palette.foreground.color())
+    } else {
+        // Unquoted before any quoted content — patch metadata/summary
+        Style::default().fg(palette.muted.color())
     }
 }
 
@@ -900,8 +910,12 @@ fn detail_patches_lines<'a>(
                 }
                 if let Some(ref inline) = rev.inline_review {
                     lines.push(Line::raw(""));
+                    let mut seen_quoted = false;
                     for review_line in inline.lines() {
-                        let style = classify_review_line(review_line, palette);
+                        if review_line.starts_with('>') {
+                            seen_quoted = true;
+                        }
+                        let style = classify_review_line(review_line, seen_quoted, palette);
                         lines.push(Line::from(vec![
                             Span::raw("    "),
                             Span::styled(review_line, style),
@@ -1212,86 +1226,205 @@ mod tests {
 
     // --- classify_review_line tests (inline_review path) ---
 
-    // Quoted diff lines — reviewer quoting original patch content
+    // Quoted diff lines — always colored by diff role regardless of seen_quoted
 
     #[test]
     fn review_line_quoted_addition() {
         let palette = ColorPalette::default();
-        let style = classify_review_line("> +    x = compute();", &palette);
+        let style = classify_review_line("> +    x = compute();", true, &palette);
         assert_eq!(style.fg, Some(palette.success.color()));
     }
 
     #[test]
     fn review_line_quoted_deletion() {
         let palette = ColorPalette::default();
-        let style = classify_review_line("> -    return 0;", &palette);
+        let style = classify_review_line("> -    return 0;", true, &palette);
         assert_eq!(style.fg, Some(palette.error.color()));
     }
 
     #[test]
     fn review_line_quoted_hunk_header() {
         let palette = ColorPalette::default();
-        let style = classify_review_line("> @@ -10,3 +10,4 @@", &palette);
+        let style = classify_review_line("> @@ -10,3 +10,4 @@", true, &palette);
         assert_eq!(style.fg, Some(palette.accent.color()));
     }
 
     #[test]
     fn review_line_quoted_file_header() {
         let palette = ColorPalette::default();
-        let style = classify_review_line("> +++ b/foo.c", &palette);
+        let style = classify_review_line("> +++ b/foo.c", true, &palette);
         assert_eq!(style.fg, Some(palette.foreground.color()));
     }
 
     #[test]
     fn review_line_double_quoted() {
         let palette = ColorPalette::default();
-        let style = classify_review_line(">> +added in nested quote", &palette);
+        let style = classify_review_line(">> +added in nested quote", true, &palette);
         assert_eq!(style.fg, Some(palette.success.color()));
     }
 
     #[test]
     fn review_line_quoted_no_space() {
         let palette = ColorPalette::default();
-        let style = classify_review_line(">+added line", &palette);
+        let style = classify_review_line(">+added line", true, &palette);
         assert_eq!(style.fg, Some(palette.success.color()));
     }
 
     #[test]
     fn review_line_quoted_context() {
         let palette = ColorPalette::default();
-        let style = classify_review_line(">  context line", &palette);
+        let style = classify_review_line(">  context line", true, &palette);
         assert_eq!(style.fg, Some(palette.muted.color()));
     }
 
-    // Reviewer commentary — unquoted prose
+    // Patch metadata — unquoted text BEFORE any quoted diff (seen_quoted=false)
 
     #[test]
-    fn review_line_prose_is_foreground() {
+    fn review_line_metadata_commit_hash() {
         let palette = ColorPalette::default();
-        let style = classify_review_line("LGTM. The null check looks correct.", &palette);
+        let style = classify_review_line(
+            "commit 37076247c47b0c3300cbefe9a1791f066ad33f2e",
+            false,
+            &palette,
+        );
+        // Patch metadata is muted
+        assert_eq!(style.fg, Some(palette.muted.color()));
+    }
+
+    #[test]
+    fn review_line_metadata_author() {
+        let palette = ColorPalette::default();
+        let style = classify_review_line("Author: Audra Mitchell <audra@redhat.com>", false, &palette);
+        assert_eq!(style.fg, Some(palette.muted.color()));
+    }
+
+    #[test]
+    fn review_line_metadata_subject() {
+        let palette = ColorPalette::default();
+        let style = classify_review_line(
+            "Subject: mm/hugetlb: fix avoid_reserve to allow taking folio from subpool",
+            false,
+            &palette,
+        );
+        assert_eq!(style.fg, Some(palette.muted.color()));
+    }
+
+    #[test]
+    fn review_line_metadata_link() {
+        let palette = ColorPalette::default();
+        let style = classify_review_line(
+            "Link: https://lkml.kernel.org/r/20250107204002.2683356-1-peterx@redhat.com",
+            false,
+            &palette,
+        );
+        assert_eq!(style.fg, Some(palette.muted.color()));
+    }
+
+    #[test]
+    fn review_line_metadata_description() {
+        let palette = ColorPalette::default();
+        let style = classify_review_line(
+            "This commit backports an upstream change to allow hugetlb COW faults",
+            false,
+            &palette,
+        );
+        assert_eq!(style.fg, Some(palette.muted.color()));
+    }
+
+    // Reviewer commentary — unquoted text AFTER quoted diff (seen_quoted=true)
+
+    #[test]
+    fn review_line_commentary_is_foreground() {
+        let palette = ColorPalette::default();
+        let style = classify_review_line("LGTM. The null check looks correct.", true, &palette);
         assert_eq!(style.fg, Some(palette.foreground.color()));
     }
 
     #[test]
-    fn review_line_prose_suggestion() {
+    fn review_line_commentary_suggestion() {
         let palette = ColorPalette::default();
-        let style = classify_review_line("Consider adding a dev_err() log here.", &palette);
+        let style = classify_review_line("Consider adding a dev_err() log here.", true, &palette);
         assert_eq!(style.fg, Some(palette.foreground.color()));
     }
 
     #[test]
-    fn review_line_prose_question() {
+    fn review_line_commentary_question() {
         let palette = ColorPalette::default();
-        let style = classify_review_line("Should this be guarded by a mutex?", &palette);
+        let style = classify_review_line("Should this be guarded by a mutex?", true, &palette);
         assert_eq!(style.fg, Some(palette.foreground.color()));
     }
+
+    // Empty lines — always unstyled regardless of phase
 
     #[test]
     fn review_line_empty_is_unstyled() {
         let palette = ColorPalette::default();
-        let style = classify_review_line("", &palette);
-        // Empty lines get no fg color — they're visual separators
+        let style = classify_review_line("", false, &palette);
         assert_eq!(style.fg, None);
+    }
+
+    #[test]
+    fn review_line_empty_after_quoted_is_unstyled() {
+        let palette = ColorPalette::default();
+        let style = classify_review_line("", true, &palette);
+        assert_eq!(style.fg, None);
+    }
+
+    // Full inline review simulation — test the stateful rendering loop
+
+    #[test]
+    fn review_stateful_classification_full_review() {
+        let palette = ColorPalette::default();
+        let review = concat!(
+            "commit abc123\n",
+            "Author: dev@example.com\n",
+            "Subject: Fix null deref\n",
+            "\n",
+            "This fixes the bug.\n",
+            "\n",
+            "> diff --git a/foo.c b/foo.c\n",
+            "> --- a/foo.c\n",
+            "> +++ b/foo.c\n",
+            "> @@ -10,3 +10,4 @@\n",
+            ">  int x = 0;\n",
+            "> -    return 0;\n",
+            "> +    x = compute();\n",
+            "\n",
+            "Good fix. Consider also checking for overflow.\n",
+        );
+
+        let mut seen_quoted = false;
+        let mut styles: Vec<Option<ratatui::style::Color>> = Vec::new();
+        for line in review.lines() {
+            if line.starts_with('>') {
+                seen_quoted = true;
+            }
+            let style = classify_review_line(line, seen_quoted, &palette);
+            styles.push(style.fg);
+        }
+
+        // Lines 0-2: commit, Author, Subject — metadata (muted)
+        assert_eq!(styles[0], Some(palette.muted.color()), "commit hash");
+        assert_eq!(styles[1], Some(palette.muted.color()), "Author");
+        assert_eq!(styles[2], Some(palette.muted.color()), "Subject");
+        // Line 3: empty
+        assert_eq!(styles[3], None, "empty separator");
+        // Line 4: description prose — metadata (muted, before any >)
+        assert_eq!(styles[4], Some(palette.muted.color()), "description");
+        // Line 5: empty
+        assert_eq!(styles[5], None, "empty separator");
+        // Lines 6-12: quoted diff content
+        assert_eq!(styles[6], Some(palette.foreground.color()), "diff header"); // bold
+        assert_eq!(styles[7], Some(palette.foreground.color()), "--- header"); // bold
+        assert_eq!(styles[8], Some(palette.foreground.color()), "+++ header"); // bold
+        assert_eq!(styles[9], Some(palette.accent.color()), "@@ hunk");
+        assert_eq!(styles[10], Some(palette.muted.color()), "context");
+        assert_eq!(styles[11], Some(palette.error.color()), "deletion");
+        assert_eq!(styles[12], Some(palette.success.color()), "addition");
+        // Line 13: empty after quoted section
+        assert_eq!(styles[13], None, "empty separator");
+        // Line 14: reviewer commentary (foreground, after quoted)
+        assert_eq!(styles[14], Some(palette.foreground.color()), "commentary");
     }
 
     // strip_email_quoting unit tests
