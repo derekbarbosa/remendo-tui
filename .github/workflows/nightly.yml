@@ -53,7 +53,12 @@ jobs:
           cp README.md config.example.toml "${RELEASE_NAME}/" 2>/dev/null || true
           tar czf "${RELEASE_NAME}.tar.gz" "${RELEASE_NAME}/"
 
-      - name: Update rolling release
+      - name: Delete existing rolling release
+        run: gh release delete "${{ steps.version.outputs.tag_name }}" --yes --cleanup-tag 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create rolling release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag_name }}
