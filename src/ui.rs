@@ -935,23 +935,11 @@ fn detail_patches_lines<'a>(
     lines.push(Line::raw(""));
 }
 
-/// Build a depth map from `in_reply_to` / `message_id` fields for thread indentation.
-fn build_depth_map(thread: &[crate::models::ThreadMessage]) -> std::collections::HashMap<String, usize> {
-    let mut map: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-    for msg in thread {
-        let depth = match &msg.in_reply_to {
-            None => 0,
-            Some(parent_id) => map.get(parent_id.as_str()).map_or(1, |d| d + 1),
-        };
-        let depth = depth.min(5); // cap at 5 levels
-        if let Some(ref mid) = msg.message_id {
-            map.insert(mid.clone(), depth);
-        }
-    }
-    map
-}
-
-/// Build thread message lines for the detail view.
+/// Build thread message lines for the patchset detail view.
+///
+/// Each message in the patchset's associated thread is rendered as two
+/// lines: author + date, then subject. This is a flat list — messages
+/// are rendered in API-returned order without indentation.
 fn detail_thread_lines<'a>(
     detail: &'a crate::models::PatchsetDetail,
     palette: &'a ColorPalette,
@@ -968,32 +956,19 @@ fn detail_thread_lines<'a>(
             Style::default().fg(palette.muted.color()),
         ));
     } else {
-        let depth_map = build_depth_map(&detail.thread);
-
         for msg in &detail.thread {
-            let depth = msg.message_id.as_ref()
-                .and_then(|mid| depth_map.get(mid.as_str()))
-                .copied()
-                .unwrap_or(0);
-            let indent = "  ".repeat(depth); // 2 spaces per level
-
             let author = msg.author.as_deref().unwrap_or("(unknown)");
             let date = format_date(msg.date);
             let subj = msg.subject.as_deref().unwrap_or("(no subject)");
-
-            // Line 1: author + date (with indent prefix)
             lines.push(Line::from(vec![
-                Span::raw(indent.clone()),
                 Span::styled(author, Style::default().fg(palette.accent.color())),
                 Span::raw("  "),
                 Span::styled(date, Style::default().fg(palette.muted.color())),
             ]));
-
-            // Line 2: subject (with indent prefix)
-            lines.push(Line::from(vec![
-                Span::raw(indent),
-                Span::styled(format!("  {subj}"), Style::default().fg(palette.foreground.color())),
-            ]));
+            lines.push(Line::styled(
+                format!("  {subj}"),
+                Style::default().fg(palette.foreground.color()),
+            ));
         }
     }
 }
@@ -1459,140 +1434,17 @@ mod tests {
         assert_eq!(strip_email_quoting("> "), "");
     }
 
-    // --- thread-indentation tests ---
+    // --- thread rendering test ---
 
     #[test]
-    fn build_depth_map_root_is_zero() {
-        use crate::models::ThreadMessage;
-        let thread = vec![ThreadMessage {
-            message_id: Some("root@example.com".to_string()),
-            in_reply_to: None,
-            ..ThreadMessage::fixture()
-        }];
-        let map = build_depth_map(&thread);
-        assert_eq!(map.get("root@example.com"), Some(&0));
-    }
-
-    #[test]
-    fn build_depth_map_reply_is_one() {
-        use crate::models::ThreadMessage;
-        let thread = vec![
-            ThreadMessage {
-                message_id: Some("root@example.com".to_string()),
-                in_reply_to: None,
-                ..ThreadMessage::fixture()
-            },
-            ThreadMessage {
-                message_id: Some("child@example.com".to_string()),
-                in_reply_to: Some("root@example.com".to_string()),
-                ..ThreadMessage::fixture()
-            },
-        ];
-        let map = build_depth_map(&thread);
-        assert_eq!(map.get("child@example.com"), Some(&1));
-    }
-
-    #[test]
-    fn build_depth_map_nested_three_levels() {
-        use crate::models::ThreadMessage;
-        let thread = vec![
-            ThreadMessage {
-                message_id: Some("a".to_string()),
-                in_reply_to: None,
-                ..ThreadMessage::fixture()
-            },
-            ThreadMessage {
-                message_id: Some("b".to_string()),
-                in_reply_to: Some("a".to_string()),
-                ..ThreadMessage::fixture()
-            },
-            ThreadMessage {
-                message_id: Some("c".to_string()),
-                in_reply_to: Some("b".to_string()),
-                ..ThreadMessage::fixture()
-            },
-        ];
-        let map = build_depth_map(&thread);
-        assert_eq!(map.get("a"), Some(&0));
-        assert_eq!(map.get("b"), Some(&1));
-        assert_eq!(map.get("c"), Some(&2));
-    }
-
-    #[test]
-    fn build_depth_map_capped_at_five() {
-        use crate::models::ThreadMessage;
-        let mut thread = Vec::new();
-        for i in 0..8 {
-            thread.push(ThreadMessage {
-                message_id: Some(format!("msg-{i}")),
-                in_reply_to: if i == 0 { None } else { Some(format!("msg-{}", i - 1)) },
-                ..ThreadMessage::fixture()
-            });
-        }
-        let map = build_depth_map(&thread);
-        assert_eq!(map.get("msg-5"), Some(&5));
-        assert_eq!(map.get("msg-6"), Some(&5)); // capped
-        assert_eq!(map.get("msg-7"), Some(&5)); // capped
-    }
-
-    #[test]
-    fn build_depth_map_orphan_is_one() {
-        use crate::models::ThreadMessage;
-        let thread = vec![ThreadMessage {
-            message_id: Some("orphan@example.com".to_string()),
-            in_reply_to: Some("nonexistent@example.com".to_string()),
-            ..ThreadMessage::fixture()
-        }];
-        let map = build_depth_map(&thread);
-        assert_eq!(map.get("orphan@example.com"), Some(&1));
-    }
-
-    #[test]
-    fn build_depth_map_no_message_id_not_in_map() {
-        use crate::models::ThreadMessage;
-        let thread = vec![ThreadMessage {
-            message_id: None,
-            in_reply_to: None,
-            ..ThreadMessage::fixture()
-        }];
-        let map = build_depth_map(&thread);
-        assert!(map.is_empty());
-    }
-
-    #[test]
-    fn build_depth_map_siblings_same_depth() {
-        use crate::models::ThreadMessage;
-        let thread = vec![
-            ThreadMessage {
-                message_id: Some("parent".to_string()),
-                in_reply_to: None,
-                ..ThreadMessage::fixture()
-            },
-            ThreadMessage {
-                message_id: Some("sib-a".to_string()),
-                in_reply_to: Some("parent".to_string()),
-                ..ThreadMessage::fixture()
-            },
-            ThreadMessage {
-                message_id: Some("sib-b".to_string()),
-                in_reply_to: Some("parent".to_string()),
-                ..ThreadMessage::fixture()
-            },
-        ];
-        let map = build_depth_map(&thread);
-        assert_eq!(map.get("sib-a"), Some(&1));
-        assert_eq!(map.get("sib-b"), Some(&1));
-    }
-
-    #[test]
-    fn detail_thread_lines_renders_indentation() {
+    fn detail_thread_lines_renders_flat() {
         use crate::models::{PatchsetDetail, ThreadMessage};
 
         let mut detail = PatchsetDetail::fixture();
         detail.thread = vec![
             ThreadMessage {
                 id: 1,
-                message_id: Some("cover@example.com".to_string()),
+                message_id: Some("msg-1@example.com".to_string()),
                 author: Some("developer@kernel.org".to_string()),
                 date: Some(1_778_690_980),
                 subject: Some("[PATCH v2 0/3] Fix null deref".to_string()),
@@ -1600,19 +1452,11 @@ mod tests {
             },
             ThreadMessage {
                 id: 2,
-                message_id: Some("ack@example.com".to_string()),
+                message_id: Some("msg-2@example.com".to_string()),
                 author: Some("maintainer@kernel.org".to_string()),
                 date: Some(1_778_700_000),
                 subject: Some("Re: [PATCH v2 0/3] Fix null deref".to_string()),
-                in_reply_to: Some("cover@example.com".to_string()),
-            },
-            ThreadMessage {
-                id: 3,
-                message_id: Some("reply@example.com".to_string()),
-                author: Some("reviewer@kernel.org".to_string()),
-                date: Some(1_778_710_000),
-                subject: Some("Re: Re: [PATCH v2 0/3] Fix null deref".to_string()),
-                in_reply_to: Some("ack@example.com".to_string()),
+                in_reply_to: Some("msg-1@example.com".to_string()),
             },
         ];
 
@@ -1620,35 +1464,16 @@ mod tests {
         let mut lines: Vec<Line> = Vec::new();
         detail_thread_lines(&detail, &palette, &mut lines);
 
-        // Line 0: section header "── Thread (3) ──"
-        assert!(lines[0].to_string().contains("Thread (3)"));
+        // Line 0: section header
+        assert!(lines[0].to_string().contains("Thread (2)"));
 
-        // Lines 1-2: root message (depth 0, no indent)
-        let root_author_line = &lines[1];
-        // First span is the indent — at depth 0 it's empty
-        assert_eq!(root_author_line.spans[0].content.as_ref(), "");
-        assert!(root_author_line.spans[1].content.contains("developer@kernel.org"));
+        // Lines 1-2: first message (flat, no indent)
+        assert!(lines[1].spans[0].content.contains("developer@kernel.org"));
 
-        let root_subject_line = &lines[2];
-        assert_eq!(root_subject_line.spans[0].content.as_ref(), "");
+        // Lines 3-4: second message (flat, no indent)
+        assert!(lines[3].spans[0].content.contains("maintainer@kernel.org"));
 
-        // Lines 3-4: reply (depth 1, 2 spaces indent)
-        let reply1_author_line = &lines[3];
-        assert_eq!(reply1_author_line.spans[0].content.as_ref(), "  ");
-        assert!(reply1_author_line.spans[1].content.contains("maintainer@kernel.org"));
-
-        let reply1_subject_line = &lines[4];
-        assert_eq!(reply1_subject_line.spans[0].content.as_ref(), "  ");
-
-        // Lines 5-6: nested reply (depth 2, 4 spaces indent)
-        let reply2_author_line = &lines[5];
-        assert_eq!(reply2_author_line.spans[0].content.as_ref(), "    ");
-        assert!(reply2_author_line.spans[1].content.contains("reviewer@kernel.org"));
-
-        let reply2_subject_line = &lines[6];
-        assert_eq!(reply2_subject_line.spans[0].content.as_ref(), "    ");
-
-        // Total: 1 header + 3 messages × 2 lines = 7 lines
-        assert_eq!(lines.len(), 7);
+        // 1 header + 2 messages × 2 lines = 5 lines
+        assert_eq!(lines.len(), 5);
     }
 }
