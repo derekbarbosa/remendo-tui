@@ -535,10 +535,10 @@ fn classify_diff_line(line: &str, palette: &ColorPalette) -> Style {
     }
 }
 
-/// Classify a line from an LKML-formatted inline review with context
-/// about whether we've seen quoted diff content yet.
+/// Classify a line from a Sashiko inline review with context about
+/// whether we've seen quoted diff content yet.
 ///
-/// Inline reviews have a three-part structure:
+/// Sashiko inline reviews have a three-part structure:
 ///
 /// 1. **Patch metadata/summary** — unquoted lines *before* any `>`-quoted
 ///    diff (commit hash, Author:, Subject:, description, Links).
@@ -548,7 +548,7 @@ fn classify_diff_line(line: &str, palette: &ColorPalette) -> Style {
 ///    Classified by diff role (green/red/cyan/bold/muted).
 ///
 /// 3. **Reviewer commentary** — unquoted lines *after* the first `>`-quoted
-///    section. This is the LLM's analysis. Styled as `foreground`.
+///    section. This is the AI review analysis. Styled as `foreground`.
 ///
 /// The `seen_quoted` flag tracks whether any `>`-quoted line has been
 /// encountered. Before that, unquoted text is patch context. After,
@@ -571,8 +571,9 @@ fn classify_review_line(line: &str, seen_quoted: bool, palette: &ColorPalette) -
     }
 }
 
-/// Strip leading email `>` quoting prefixes from a line.
+/// Strip leading `>` quoting prefixes from a review line.
 ///
+/// Sashiko inline reviews quote patch content with `>` prefixes.
 /// Handles `"> "`, `">"`, and nested quoting like `">> "`.
 fn strip_email_quoting(line: &str) -> &str {
     let mut s = line;

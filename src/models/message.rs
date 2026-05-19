@@ -1,11 +1,11 @@
-//! Email message domain types.
+//! Message domain types from the Sashiko API.
 //!
 //! Named `EmailMessage` (not `Message`) to avoid collision with the TEA
 //! `Message` enum in `src/update.rs`.
 
 use serde::Deserialize;
 
-/// A full email message from the Sashiko instance.
+/// A message record from the Sashiko API (`/api/messages`, `/api/message`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct EmailMessage {
     /// Database identifier.
@@ -46,7 +46,7 @@ pub struct EmailMessage {
     pub diff: Option<String>,
 }
 
-/// A lightweight thread entry from patchset detail responses.
+/// A message entry from the patchset detail thread section.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct ThreadMessage {
     /// Database identifier.
