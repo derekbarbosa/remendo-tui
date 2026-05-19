@@ -1,0 +1,29 @@
+---
+source: src/ui.rs
+assertion_line: 322
+expression: terminal.backend()
+---
+"┌ remendo ─────────────────────────────────────────────────────────────────────┐"
+"│No remotes configured.                                                        │"
+"│                                                                              │"
+"│To get started:                                                               │"
+"│  1. cp config.example.toml ~/.config/remendo/config.toml                     │"
+"│  2. Edit the file and set your Sashiko instance URL                          │"
+"│  3. Restart remendo                                                          │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"│                                                                              │"
+"└──────────────────────────────────────────────────────────────────────────────┘"
