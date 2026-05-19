@@ -1583,4 +1583,72 @@ mod tests {
         assert_eq!(map.get("sib-a"), Some(&1));
         assert_eq!(map.get("sib-b"), Some(&1));
     }
+
+    #[test]
+    fn detail_thread_lines_renders_indentation() {
+        use crate::models::{PatchsetDetail, ThreadMessage};
+
+        let mut detail = PatchsetDetail::fixture();
+        detail.thread = vec![
+            ThreadMessage {
+                id: 1,
+                message_id: Some("cover@example.com".to_string()),
+                author: Some("developer@kernel.org".to_string()),
+                date: Some(1_778_690_980),
+                subject: Some("[PATCH v2 0/3] Fix null deref".to_string()),
+                in_reply_to: None,
+            },
+            ThreadMessage {
+                id: 2,
+                message_id: Some("ack@example.com".to_string()),
+                author: Some("maintainer@kernel.org".to_string()),
+                date: Some(1_778_700_000),
+                subject: Some("Re: [PATCH v2 0/3] Fix null deref".to_string()),
+                in_reply_to: Some("cover@example.com".to_string()),
+            },
+            ThreadMessage {
+                id: 3,
+                message_id: Some("reply@example.com".to_string()),
+                author: Some("reviewer@kernel.org".to_string()),
+                date: Some(1_778_710_000),
+                subject: Some("Re: Re: [PATCH v2 0/3] Fix null deref".to_string()),
+                in_reply_to: Some("ack@example.com".to_string()),
+            },
+        ];
+
+        let palette = ColorPalette::default();
+        let mut lines: Vec<Line> = Vec::new();
+        detail_thread_lines(&detail, &palette, &mut lines);
+
+        // Line 0: section header "── Thread (3) ──"
+        assert!(lines[0].to_string().contains("Thread (3)"));
+
+        // Lines 1-2: root message (depth 0, no indent)
+        let root_author_line = &lines[1];
+        // First span is the indent — at depth 0 it's empty
+        assert_eq!(root_author_line.spans[0].content.as_ref(), "");
+        assert!(root_author_line.spans[1].content.contains("developer@kernel.org"));
+
+        let root_subject_line = &lines[2];
+        assert_eq!(root_subject_line.spans[0].content.as_ref(), "");
+
+        // Lines 3-4: reply (depth 1, 2 spaces indent)
+        let reply1_author_line = &lines[3];
+        assert_eq!(reply1_author_line.spans[0].content.as_ref(), "  ");
+        assert!(reply1_author_line.spans[1].content.contains("maintainer@kernel.org"));
+
+        let reply1_subject_line = &lines[4];
+        assert_eq!(reply1_subject_line.spans[0].content.as_ref(), "  ");
+
+        // Lines 5-6: nested reply (depth 2, 4 spaces indent)
+        let reply2_author_line = &lines[5];
+        assert_eq!(reply2_author_line.spans[0].content.as_ref(), "    ");
+        assert!(reply2_author_line.spans[1].content.contains("reviewer@kernel.org"));
+
+        let reply2_subject_line = &lines[6];
+        assert_eq!(reply2_subject_line.spans[0].content.as_ref(), "    ");
+
+        // Total: 1 header + 3 messages × 2 lines = 7 lines
+        assert_eq!(lines.len(), 7);
+    }
 }
