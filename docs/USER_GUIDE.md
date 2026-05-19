@@ -121,15 +121,45 @@ Navigate the list with:
 - `Ctrl-d` / `Ctrl-u` -- half-page down / up
 - `Enter` -- open the selected patchset
 
+### Sorting the Patchset List
+
+Press `s` to cycle the sort column through:
+
+```
+Default (API order) → Status → Date → Findings → Author → Default …
+```
+
+Press `S` (Shift-s) to reverse the sort direction without changing the
+column. The active column header shows `▲` (ascending) or `▼`
+(descending).
+
+Sorting is client-side and applies to the current page only. Each new
+page is re-sorted automatically. Switching remotes resets the sort to
+the default API order.
+
+### Bookmark Filtering
+
+Press `B` (Shift-b) to toggle a display filter that shows only
+bookmarked patchsets. The title bar shows `| [B] bookmarks` when the
+filter is active. Press `B` again to show all patchsets.
+
+The bookmark filter composes with sorting: when both are active, the
+visible rows are the bookmarked subset in the current sort order.
+
+Note: `b` toggles the bookmark on an individual item (persists), while
+`B` toggles the display filter (resets on remote switch).
+
 ### Patchset Detail
 
 When you open a patchset, you see:
 
 - **Header** -- subject, author, date, status, baseline
 - **Patches** -- list of individual diffs in the series
-- **Reviews** -- AI review results for each patch
+- **Reviews** -- AI review results for each patch, with syntax-highlighted
+  inline reviews
 - **Findings** -- issues found, sorted by severity
-- **Thread** -- email thread with human and automated replies
+- **Thread** -- email thread with human and automated replies, indented by
+  reply depth
 
 Navigate within the detail view with:
 
@@ -138,6 +168,29 @@ Navigate within the detail view with:
 - `r` -- view the raw review log in your `$EDITOR`
 - `n` / `N` -- next / previous finding or comment
 - `Esc` -- return to the patchset list
+
+### Inline Review Styling
+
+Inline reviews display AI-generated code reviews with three visually
+distinct sections:
+
+- **Patch metadata** (dimmed) -- commit hash, author, subject, and
+  description text that provides context about the patch under review.
+
+- **Quoted diff** (color-coded) -- the original patch content, quoted
+  with `>` prefix. Additions are green, deletions are red, hunk headers
+  are cyan, and file headers are bold.
+
+- **Reviewer commentary** (bright) -- the AI's analysis, suggestions,
+  and questions. This is the primary content and renders in the default
+  foreground color for maximum readability.
+
+### Thread Indentation
+
+In the detail view, thread messages are indented by reply depth. Direct
+replies to the cover letter appear at the left margin, replies to replies
+indent by two spaces per level, up to a maximum depth of 5 (10 spaces).
+Comment navigation with `n` / `N` still works correctly with indentation.
 
 ## Searching and Filtering
 
@@ -282,6 +335,10 @@ view shows each finding with its full description and severity rationale.
 | `Enter` | Open selected item |
 | `/` | Search |
 | `b` | Toggle bookmark |
+| `B` | Toggle bookmark-only filter |
+| `s` | Cycle sort column |
+| `S` | Reverse sort direction |
+| `m` | Toggle patchset / message list |
 
 ### Detail View
 
@@ -291,6 +348,7 @@ view shows each finding with its full description and severity rationale.
 | `Ctrl-d` / `Ctrl-u` | Half-page scroll |
 | `n` / `N` | Next / previous comment |
 | `r` | View raw log |
+| `L` | View baseline application log |
 | `Esc` | Close detail view |
 
 All keybindings are customizable. See the

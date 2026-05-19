@@ -83,11 +83,18 @@ close_thread = "Esc"
 refresh = "C-r"
 search = "/"
 bookmark_toggle = "b"
+bookmark_filter = "B"
 view_raw_log = "r"
 help = "?"
 focus_sidebar = "C-s"
 next_comment = "n"
 prev_comment = "N"
+next_page = "]"
+prev_page = "["
+view_baseline_log = "L"
+toggle_list_content = "m"
+cycle_sort = "s"
+reverse_sort = "S"
 
 # Theme / color scheme
 [theme.colors]
@@ -213,6 +220,11 @@ F1 through F12
 | `prev_comment` | `N` | Jump to the previous review comment |
 | `next_page` | `]` | Navigate to the next page of results |
 | `prev_page` | `[` | Navigate to the previous page of results |
+| `view_baseline_log` | `L` | View the baseline application log in `$EDITOR` |
+| `toggle_list_content` | `m` | Toggle between patchset and message list views |
+| `bookmark_filter` | `B` | Toggle bookmark-only filter in the list view |
+| `cycle_sort` | `s` | Cycle sort column (Default → Status → Date → Findings → Author) |
+| `reverse_sort` | `S` | Reverse the current sort direction |
 
 Unknown action names in the config are silently ignored (with a logged
 warning). This ensures forward compatibility when upgrading `remendo`.
@@ -249,6 +261,46 @@ as hex RGB (`#rrggbb`) or named colors.
 | `selected_fg` | `#f8f8f8` | Text color of selected items |
 | `border` | `#585858` | Borders and separators |
 | `muted` | `#6b6b6b` | Dimmed/secondary text |
+
+#### How Color Roles Are Used
+
+Each color role serves multiple purposes across the UI. This table
+shows which role applies to each visual element, so you can preview
+the effect of changing a color:
+
+| Role | UI elements styled with this color |
+|------|-------------------------------------|
+| `foreground` | Default text, reviewer commentary in inline reviews, diff file headers (`diff --git`, `+++`, `---`, `index`) |
+| `background` | Application background |
+| `accent` | Section headers (`── Patches ──`, `── Thread ──`), diff hunk headers (`@@`), column header text, thread author names |
+| `error` | Failed/error status indicators, diff deletions (`-` lines) |
+| `warning` | Medium-severity finding indicators |
+| `success` | Reviewed/success status indicators, diff additions (`+` lines), patch status badges |
+| `info` | Informational text |
+| `selected_bg` | Background of the currently selected row |
+| `selected_fg` | Text of the currently selected row |
+| `border` | Panel borders and separators |
+| `muted` | Secondary text, patch metadata/summary in inline reviews, diff context lines, timestamps, subsystem tags |
+
+**Inline review styling** — Inline reviews (AI-generated code reviews)
+have three visual phases, each using a different color role:
+
+1. **Patch metadata** (commit hash, Author, Subject, description,
+   Links) — styled with `muted`. This is contextual background
+   information about the patch under review.
+
+2. **Quoted diff** (`> +added`, `> -removed`, `> @@ hunk`) — colored
+   by diff role: `success` for additions, `error` for deletions,
+   `accent` for hunk headers, `foreground` (bold) for file headers,
+   `muted` for context lines.
+
+3. **Reviewer commentary** (the AI's analysis and suggestions) —
+   styled with `foreground`. This is the primary content users want
+   to read and stands out against the dimmer metadata and quoted
+   context.
+
+To customize the visual separation between reviewer commentary and
+patch metadata, adjust the contrast between `foreground` and `muted`.
 
 #### Named Colors
 
