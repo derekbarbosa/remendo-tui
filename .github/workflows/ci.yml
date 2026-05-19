@@ -100,7 +100,7 @@ jobs:
       # and the comment shows absolute scores instead of deltas.
       - name: Download CRAP baseline
         id: baseline
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v21
         with:
           name: crap-baseline
           workflow: ci.yml
