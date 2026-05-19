@@ -83,6 +83,7 @@ impl fmt::Display for ConfigWarning {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -107,10 +108,8 @@ mod tests {
 
     #[test]
     fn config_error_display_validation() {
-        let err = ConfigError::Validation(vec![
-            "missing url".to_string(),
-            "bad timeout".to_string(),
-        ]);
+        let err =
+            ConfigError::Validation(vec!["missing url".to_string(), "bad timeout".to_string()]);
         let s = err.to_string();
         assert!(s.contains("config validation errors"), "got: {s}");
         assert!(s.contains("missing url"), "got: {s}");
@@ -126,10 +125,7 @@ mod tests {
 
     #[test]
     fn config_error_source_io() {
-        let err = ConfigError::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "test",
-        ));
+        let err = ConfigError::Io(std::io::Error::other("test"));
         assert!(std::error::Error::source(&err).is_some());
     }
 

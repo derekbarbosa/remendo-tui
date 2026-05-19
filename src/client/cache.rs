@@ -106,10 +106,13 @@ impl CachingClient {
     /// Store a value in a keyed cache.
     fn store_keyed<T>(cache: &Mutex<HashMap<String, CacheEntry<T>>>, key: String, value: T) {
         if let Ok(mut guard) = cache.lock() {
-            guard.insert(key, CacheEntry {
-                value,
-                inserted_at: Instant::now(),
-            });
+            guard.insert(
+                key,
+                CacheEntry {
+                    value,
+                    inserted_at: Instant::now(),
+                },
+            );
         }
     }
 }

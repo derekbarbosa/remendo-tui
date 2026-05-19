@@ -88,17 +88,20 @@ impl EmailMessage {
     /// Returns a fixture email message with diff content for testing.
     pub fn fixture_with_diff() -> Self {
         Self {
-            diff: Some(concat!(
-                "diff --git a/foo.c b/foo.c\n",
-                "index abc123..def456 100644\n",
-                "--- a/foo.c\n",
-                "+++ b/foo.c\n",
-                "@@ -10,3 +10,4 @@ int main(void)\n",
-                " int x = 0;\n",
-                "-    return 0;\n",
-                "+    x = compute();\n",
-                "+    return x;\n",
-            ).to_string()),
+            diff: Some(
+                concat!(
+                    "diff --git a/foo.c b/foo.c\n",
+                    "index abc123..def456 100644\n",
+                    "--- a/foo.c\n",
+                    "+++ b/foo.c\n",
+                    "@@ -10,3 +10,4 @@ int main(void)\n",
+                    " int x = 0;\n",
+                    "-    return 0;\n",
+                    "+    x = compute();\n",
+                    "+    return x;\n",
+                )
+                .to_string(),
+            ),
             ..Self::fixture()
         }
     }

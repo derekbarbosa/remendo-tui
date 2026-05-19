@@ -4,11 +4,11 @@ use color_eyre::Result;
 use remendo_tui::app::RunningState;
 use remendo_tui::client::{CachingClient, HttpClient, SashikoApi};
 use remendo_tui::config::Config;
-use std::time::Duration;
 use remendo_tui::{cmd, event, tui, ui, update};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc;
 use tracing_subscriber::EnvFilter;
 

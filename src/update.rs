@@ -13,7 +13,7 @@ use crate::client::ApiError;
 use crate::client::types::ListParams;
 use crate::cmd::Cmd;
 use crate::models::{
-    EmailMessage, MailingList, PatchId, Paginated, Patchset, PatchsetDetail, ServerStats,
+    EmailMessage, MailingList, Paginated, PatchId, Patchset, PatchsetDetail, ServerStats,
 };
 
 /// Every action the application can take.
@@ -150,10 +150,9 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
         Message::PatchsetDetailLoaded(result) => handle_detail_loaded(app, *result),
         Message::StatsLoaded(result) => handle_stats_loaded(app, result),
         Message::ListsLoaded(result) => handle_lists_loaded(app, result),
-        Message::ScrollDown
-        | Message::ScrollUp
-        | Message::HalfPageDown
-        | Message::HalfPageUp => handle_scroll(app, &msg),
+        Message::ScrollDown | Message::ScrollUp | Message::HalfPageDown | Message::HalfPageUp => {
+            handle_scroll(app, &msg)
+        }
         Message::Select => handle_select(app),
         Message::NextMailbox => {
             if app.config.remotes.is_empty() {
@@ -243,8 +242,7 @@ fn log_message(msg: &Message, app: &App) {
         Message::ViewRawLog => tracing::debug!("view raw log"),
         Message::Tick | Message::Render => tracing::trace!("tick/render"),
         Message::Resize(w, h) => tracing::trace!(w, h, "resize"),
-        Message::ScrollDown | Message::ScrollUp
-        | Message::HalfPageDown | Message::HalfPageUp => {
+        Message::ScrollDown | Message::ScrollUp | Message::HalfPageDown | Message::HalfPageUp => {
             tracing::trace!("scroll");
         }
         Message::SearchInput(_) => tracing::trace!("search input"),
@@ -327,10 +325,7 @@ fn handle_toggle_list_content(app: &mut App) -> Cmd {
 }
 
 /// Handle `Message::MessagesLoaded` — store message list.
-fn handle_messages_loaded(
-    app: &mut App,
-    result: Result<Paginated<EmailMessage>, ApiError>,
-) -> Cmd {
+fn handle_messages_loaded(app: &mut App, result: Result<Paginated<EmailMessage>, ApiError>) -> Cmd {
     match result {
         Ok(paginated) => {
             tracing::info!(
@@ -543,10 +538,7 @@ fn handle_comment_nav(app: &mut App, forward: bool) -> Cmd {
                     .unwrap_or(positions.len() - 1)
             } else {
                 // Find last position < current offset
-                positions
-                    .iter()
-                    .rposition(|&p| p < offset)
-                    .unwrap_or(0)
+                positions.iter().rposition(|&p| p < offset).unwrap_or(0)
             }
         }
     };
@@ -744,8 +736,7 @@ fn handle_scroll(app: &mut App, msg: &Message) -> Cmd {
                 app.detail_scroll_offset = app.detail_scroll_offset.saturating_sub(1);
             }
             Message::HalfPageDown => {
-                app.detail_scroll_offset +=
-                    usize::from(app.terminal_height / 2).max(1);
+                app.detail_scroll_offset += usize::from(app.terminal_height / 2).max(1);
             }
             Message::HalfPageUp => {
                 let half = usize::from(app.terminal_height / 2).max(1);
@@ -815,8 +806,7 @@ fn handle_sidebar_scroll(app: &mut App, msg: &Message) -> Cmd {
                 } else {
                     // Transition back to remotes
                     app.sidebar_section = SidebarSection::Remotes;
-                    app.active_remote_index =
-                        app.config.remotes.len().saturating_sub(1);
+                    app.active_remote_index = app.config.remotes.len().saturating_sub(1);
                 }
             }
         }
@@ -1078,11 +1068,13 @@ mod tests {
     fn app_with_patchsets(count: usize) -> App {
         let mut app = App::new(Config::default());
         app.patchsets = Paginated {
-            items: (0..count).map(|i| {
-                let mut ps = Patchset::fixture();
-                ps.id = i64::try_from(i).expect("test count fits i64");
-                ps
-            }).collect(),
+            items: (0..count)
+                .map(|i| {
+                    let mut ps = Patchset::fixture();
+                    ps.id = i64::try_from(i).expect("test count fits i64");
+                    ps
+                })
+                .collect(),
             total: u32::try_from(count).expect("test count fits u32"),
             page: 1,
             per_page: 50,
@@ -1213,10 +1205,7 @@ mod tests {
             source: "timeout".into(),
             remote: "test".to_string(),
         };
-        let cmd = update(
-            &mut app,
-            Message::PatchsetDetailLoaded(Box::new(Err(err))),
-        );
+        let cmd = update(&mut app, Message::PatchsetDetailLoaded(Box::new(Err(err))));
         assert!(matches!(cmd, Cmd::None));
         assert!(app.error_state.is_some());
         assert!(app.selected_detail.is_none());
@@ -1234,7 +1223,9 @@ mod tests {
     fn app_with_remotes(names: &[&str]) -> App {
         let mut config = Config::default();
         for name in names {
-            config.remotes.push(crate::config::RemoteConfig::fixture(name));
+            config
+                .remotes
+                .push(crate::config::RemoteConfig::fixture(name));
         }
         App::new(config)
     }
@@ -1416,12 +1407,10 @@ mod tests {
     #[test]
     fn sidebar_select_mailing_list_filters() {
         let mut app = app_with_remotes(&["upstream"]);
-        app.mailing_lists = vec![
-            crate::models::MailingList {
-                name: "LKML".to_string(),
-                group: Some("org.kernel.vger.linux-kernel".to_string()),
-            },
-        ];
+        app.mailing_lists = vec![crate::models::MailingList {
+            name: "LKML".to_string(),
+            group: Some("org.kernel.vger.linux-kernel".to_string()),
+        }];
         app.focus = FocusPanel::Sidebar;
         app.sidebar_section = SidebarSection::MailingLists;
         app.sidebar_list_index = 1; // first mailing list (0 = "All")
@@ -1674,7 +1663,7 @@ mod tests {
         ];
         // All distinct
         let mut sorted = keys.clone();
-        sorted.sort();
+        sorted.sort_unstable();
         sorted.dedup();
         assert_eq!(sorted.len(), 9);
         // Monotonically increasing
@@ -2091,7 +2080,10 @@ mod tests {
     #[test]
     fn bookmarks_persisted_error_is_noop() {
         let mut app = App::new(Config::default());
-        let cmd = update(&mut app, Message::BookmarksPersisted(Err("test error".to_string())));
+        let cmd = update(
+            &mut app,
+            Message::BookmarksPersisted(Err("test error".to_string())),
+        );
         assert!(matches!(cmd, Cmd::None));
     }
 

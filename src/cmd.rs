@@ -5,9 +5,9 @@
 //! sending results back as `Message` variants through a channel.
 
 use crate::bookmarks::BookmarkStore;
+use crate::client::SashikoApi;
 use crate::client::error::ApiError;
 use crate::client::types::ListParams;
-use crate::client::SashikoApi;
 use crate::models::PatchId;
 use crate::update::Message;
 use std::collections::HashMap;
@@ -146,9 +146,7 @@ pub fn execute<S: ::std::hash::BuildHasher>(
                     let _ = tx.send(Message::MessagesLoaded(result));
                 });
             } else {
-                let _ = msg_tx.send(Message::MessagesLoaded(Err(no_remote_error(
-                    active_remote,
-                ))));
+                let _ = msg_tx.send(Message::MessagesLoaded(Err(no_remote_error(active_remote))));
             }
         }
         Cmd::FetchMessageDetail(id) => {
