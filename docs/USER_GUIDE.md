@@ -15,14 +15,15 @@ Before diving in, here are the key terms used throughout `remendo`:
 | **Patch** | An individual diff within a patchset |
 | **Review** | An AI-generated code review of a single patch, produced by Sashiko |
 | **Finding** | A specific issue identified during review (Low/Medium/High/Critical severity) |
-| **Thread** | The email thread associated with a patchset, including human replies |
+| **Thread** | Messages associated with a patchset on the Sashiko instance |
 
 ### How Sashiko Works
 
-[Sashiko](https://sashiko.dev/) monitors Linux kernel mailing lists, ingests
-submitted patches, and runs them through a multi-stage AI review pipeline. Each
+[Sashiko](https://sashiko.dev/) is an agentic patch review platform. It ingests
+submitted patches and runs them through a multi-stage AI review pipeline. Each
 patch receives a review with findings ranked by severity. `remendo` connects to
-Sashiko's REST API to display these reviews in your terminal.
+one or more Sashiko instances via their REST API to display these reviews in
+your terminal.
 
 ## Getting Started
 
@@ -158,8 +159,7 @@ When you open a patchset, you see:
 - **Reviews** -- AI review results for each patch, with syntax-highlighted
   inline reviews
 - **Findings** -- issues found, sorted by severity
-- **Thread** -- email thread with human and automated replies, indented by
-  reply depth
+- **Thread** -- messages associated with this patchset
 
 Navigate within the detail view with:
 
@@ -171,8 +171,8 @@ Navigate within the detail view with:
 
 ### Inline Review Styling
 
-Inline reviews display AI-generated code reviews with three visually
-distinct sections:
+Inline reviews display AI-generated code reviews from the Sashiko
+review pipeline with three visually distinct sections:
 
 - **Patch metadata** (dimmed) -- commit hash, author, subject, and
   description text that provides context about the patch under review.
@@ -184,13 +184,6 @@ distinct sections:
 - **Reviewer commentary** (bright) -- the AI's analysis, suggestions,
   and questions. This is the primary content and renders in the default
   foreground color for maximum readability.
-
-### Thread Indentation
-
-In the detail view, thread messages are indented by reply depth. Direct
-replies to the cover letter appear at the left margin, replies to replies
-indent by two spaces per level, up to a maximum depth of 5 (10 spaces).
-Comment navigation with `n` / `N` still works correctly with indentation.
 
 ## Searching and Filtering
 

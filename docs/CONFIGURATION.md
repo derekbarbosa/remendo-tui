@@ -282,8 +282,8 @@ the effect of changing a color:
 | `border` | Panel borders and separators |
 | `muted` | Secondary text, patch metadata/summary in inline reviews, diff context lines, timestamps, subsystem tags |
 
-**Inline review styling** — Inline reviews (AI-generated code reviews)
-have three visual phases, each using a different color role:
+**Inline review styling** — Inline reviews from the Sashiko review
+pipeline have three visual phases, each using a different color role:
 
 1. **Patch metadata** (commit hash, Author, Subject, description,
    Links) — styled with `muted`. This is contextual background
