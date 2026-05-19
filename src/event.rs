@@ -296,4 +296,127 @@ mod tests {
         let msg = handle_event(&app, &event);
         assert!(matches!(msg, Some(Message::ToggleFocus)));
     }
+
+    #[test]
+    fn handle_event_init_via_init_event() {
+        let app = App::new(Config::default());
+        let event = Event::Init;
+        let msg = handle_event(&app, &event);
+        assert!(matches!(msg, Some(Message::Init)));
+    }
+
+    #[test]
+    fn handle_search_key_char_input() {
+        let key = KeyEvent::new_with_kind(
+            KeyCode::Char('a'),
+            KeyModifiers::NONE,
+            KeyEventKind::Press,
+        );
+        assert!(matches!(
+            handle_search_key(key),
+            Some(Message::SearchInput('a'))
+        ));
+    }
+
+    #[test]
+    fn handle_search_key_backspace() {
+        let key = KeyEvent::new_with_kind(
+            KeyCode::Backspace,
+            KeyModifiers::NONE,
+            KeyEventKind::Press,
+        );
+        assert!(matches!(
+            handle_search_key(key),
+            Some(Message::SearchInput('\x08'))
+        ));
+    }
+
+    #[test]
+    fn handle_search_key_enter_submits() {
+        let key = KeyEvent::new_with_kind(
+            KeyCode::Enter,
+            KeyModifiers::NONE,
+            KeyEventKind::Press,
+        );
+        assert!(matches!(handle_search_key(key), Some(Message::SearchSubmit)));
+    }
+
+    #[test]
+    fn handle_search_key_esc_cancels() {
+        let key = KeyEvent::new_with_kind(
+            KeyCode::Esc,
+            KeyModifiers::NONE,
+            KeyEventKind::Press,
+        );
+        assert!(matches!(handle_search_key(key), Some(Message::SearchCancel)));
+    }
+
+    #[test]
+    fn handle_search_key_ctrl_char_ignored() {
+        let key = KeyEvent::new_with_kind(
+            KeyCode::Char('a'),
+            KeyModifiers::CONTROL,
+            KeyEventKind::Press,
+        );
+        assert!(handle_search_key(key).is_none());
+    }
+
+    #[test]
+    fn handle_search_key_unknown_returns_none() {
+        let key = KeyEvent::new_with_kind(
+            KeyCode::F(1),
+            KeyModifiers::NONE,
+            KeyEventKind::Press,
+        );
+        assert!(handle_search_key(key).is_none());
+    }
+
+    #[test]
+    fn action_to_message_covers_all_variants() {
+        use crate::config::keys::KeyAction;
+        let pairs: Vec<(KeyAction, Message)> = vec![
+            (KeyAction::Quit, Message::Quit),
+            (KeyAction::Refresh, Message::Refresh),
+            (KeyAction::ScrollDown, Message::ScrollDown),
+            (KeyAction::ScrollUp, Message::ScrollUp),
+            (KeyAction::ScrollHalfPageDown, Message::HalfPageDown),
+            (KeyAction::ScrollHalfPageUp, Message::HalfPageUp),
+            (KeyAction::OpenThread, Message::Select),
+            (KeyAction::NextMailbox, Message::NextMailbox),
+            (KeyAction::PrevMailbox, Message::PrevMailbox),
+            (KeyAction::FocusSidebar, Message::ToggleFocus),
+            (KeyAction::CloseThread, Message::Back),
+            (KeyAction::Help, Message::ToggleHelp),
+            (KeyAction::NextPage, Message::NextPage),
+            (KeyAction::PrevPage, Message::PrevPage),
+            (KeyAction::Search, Message::SearchStart),
+            (KeyAction::ViewRawLog, Message::ViewRawLog),
+            (KeyAction::BookmarkToggle, Message::BookmarkToggle),
+            (KeyAction::NextComment, Message::NextComment),
+            (KeyAction::PrevComment, Message::PrevComment),
+            (KeyAction::ViewBaselineLog, Message::ViewBaselineLog),
+            (KeyAction::ToggleListContent, Message::ToggleListContent),
+            (KeyAction::BookmarkFilter, Message::ToggleBookmarkFilter),
+            (KeyAction::CycleSort, Message::CycleSort),
+            (KeyAction::ReverseSort, Message::ReverseSort),
+        ];
+        for (action, expected) in pairs {
+            let result = action_to_message(action);
+            assert!(result.is_some(), "action_to_message({action:?}) returned None");
+            assert_eq!(
+                std::mem::discriminant(&result.unwrap()),
+                std::mem::discriminant(&expected),
+                "mismatch for {action:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn handle_event_search_mode_routes_to_search_key() {
+        let mut app = App::new(Config::default());
+        app.input_mode = crate::app::InputMode::Search;
+        let event = make_key_event(KeyCode::Char('x'), KeyModifiers::NONE);
+        let msg = handle_event(&app, &event);
+        assert!(matches!(msg, Some(Message::SearchInput('x'))));
+    }
 }
