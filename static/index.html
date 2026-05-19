@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>remendo — docs & coverage</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────── */
+    :root {
+      color-scheme: dark;
+      --denim-dark:   #1a2a3a;
+      --denim-mid:    #2c4a6e;
+      --denim-light:  #4a7ab5;
+      --denim-wash:   #5a8ac5;
+      --thread-white: #e8e0d4;
+      --thread-gold:  #c4a35a;
+      --tux-orange:   #e8943a;
+      --tux-black:    #1a1a1a;
+      --patch-bg:     #3a6090;
+      --card-bg:      #1e3450;
+      --card-border:  #5a8ab5;
+      --text-primary: #e8e0d4;
+      --text-muted:   #9ab0c8;
+      --link-color:   #e8943a;
+      --link-hover:   #f0a850;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Courier New', 'Consolas', 'Liberation Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-primary);
+      overflow-x: hidden;
+    }
+
+    /* ── Denim background texture (pure CSS) ──────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background-color: var(--denim-dark);
+      /* Simulate denim weave with layered gradients */
+      background-image:
+        /* Horizontal thread lines */
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(74, 122, 181, 0.08) 2px,
+          rgba(74, 122, 181, 0.08) 3px
+        ),
+        /* Vertical thread lines */
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 3px,
+          rgba(90, 138, 197, 0.06) 3px,
+          rgba(90, 138, 197, 0.06) 4px
+        ),
+        /* Diagonal twill weave */
+        repeating-linear-gradient(
+          135deg,
+          transparent,
+          transparent 4px,
+          rgba(44, 74, 110, 0.15) 4px,
+          rgba(44, 74, 110, 0.15) 5px
+        ),
+        /* Base color variation */
+        radial-gradient(
+          ellipse at 30% 20%,
+          rgba(74, 122, 181, 0.1) 0%,
+          transparent 70%
+        );
+    }
+
+    /* Subtle noise overlay for fabric texture */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      opacity: 0.03;
+      background-image:
+        repeating-conic-gradient(
+          rgba(255,255,255,0.3) 0% 25%,
+          transparent 0% 50%
+        );
+      background-size: 4px 4px;
+    }
+
+    /* ── Main container — the "patch" ─────────────────────── */
+    .patch {
+      position: relative;
+      max-width: 680px;
+      width: 90%;
+      margin: 2rem;
+      padding: 3rem 2.5rem;
+      background:
+        /* Inner denim slightly lighter */
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(90, 138, 197, 0.06) 2px,
+          rgba(90, 138, 197, 0.06) 3px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 3px,
+          rgba(74, 122, 181, 0.05) 3px,
+          rgba(74, 122, 181, 0.05) 4px
+        ),
+        var(--patch-bg);
+      border-radius: 4px;
+      /* Stitching border effect */
+      border: 3px dashed var(--thread-gold);
+      outline: 2px solid rgba(90, 138, 197, 0.3);
+      outline-offset: 4px;
+      box-shadow:
+        /* Inner shadow for depth */
+        inset 0 0 30px rgba(0, 0, 0, 0.3),
+        /* Drop shadow */
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    /* ── Frayed edges (pseudo-elements) ───────────────────── */
+    .patch::before,
+    .patch::after {
+      content: '';
+      position: absolute;
+      pointer-events: none;
+    }
+
+    /* Top/bottom frayed edge */
+    .patch::before {
+      top: -8px;
+      left: 10px;
+      right: 10px;
+      height: 8px;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          var(--thread-white) 0px,
+          var(--thread-white) 1px,
+          transparent 1px,
+          transparent 3px
+        );
+      opacity: 0.4;
+      filter: blur(0.3px);
+    }
+
+    .patch::after {
+      bottom: -8px;
+      left: 10px;
+      right: 10px;
+      height: 8px;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          var(--thread-white) 0px,
+          var(--thread-white) 1px,
+          transparent 1px,
+          transparent 3px
+        );
+      opacity: 0.4;
+      filter: blur(0.3px);
+    }
+
+    /* Left/right frayed edges via box shadow on inner wrapper */
+    .fray-left,
+    .fray-right {
+      position: absolute;
+      top: 10px;
+      bottom: 10px;
+      width: 8px;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          var(--thread-white) 0px,
+          var(--thread-white) 1px,
+          transparent 1px,
+          transparent 3px
+        );
+      opacity: 0.4;
+      filter: blur(0.3px);
+      pointer-events: none;
+    }
+
+    .fray-left  { left: -8px; }
+    .fray-right { right: -8px; }
+
+    /* ── Hero section ─────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .logo {
+      width: 160px;
+      height: auto;
+      margin-bottom: 1.2rem;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+      /* Subtle embroidered look on hover */
+      transition: transform 0.3s ease, filter 0.3s ease;
+    }
+
+    .logo:hover {
+      transform: scale(1.05);
+      filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.6));
+    }
+
+    .title {
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: lowercase;
+      color: var(--thread-white);
+      text-shadow:
+        1px 1px 0 rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(196, 163, 90, 0.2);
+      margin-bottom: 0.4rem;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      line-height: 1.6;
+    }
+
+    /* ── Stitch divider ───────────────────────────────────── */
+    .stitch {
+      border: none;
+      height: 2px;
+      margin: 0 0 2rem;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          var(--thread-gold) 0px,
+          var(--thread-gold) 8px,
+          transparent 8px,
+          transparent 14px
+        );
+      opacity: 0.6;
+    }
+
+    /* ── Cards — mini patches ─────────────────────────────── */
+    .links {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .card {
+      flex: 1;
+      padding: 1.5rem;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(74, 122, 181, 0.04) 2px,
+          rgba(74, 122, 181, 0.04) 3px
+        ),
+        var(--card-bg);
+      border: 2px dashed var(--card-border);
+      border-radius: 3px;
+      position: relative;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: var(--thread-gold);
+      box-shadow:
+        inset 0 0 15px rgba(196, 163, 90, 0.08),
+        0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Corner stitch marks on cards */
+    .card::before,
+    .card::after {
+      content: '×';
+      position: absolute;
+      font-size: 0.65rem;
+      color: var(--thread-gold);
+      opacity: 0.5;
+      line-height: 1;
+    }
+
+    .card::before {
+      top: 4px;
+      left: 6px;
+    }
+
+    .card::after {
+      bottom: 4px;
+      right: 6px;
+    }
+
+    .card h2 {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .card h2 a {
+      color: var(--link-color);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .card h2 a:hover {
+      color: var(--link-hover);
+      text-decoration: none;
+    }
+
+    .card h2 a::before {
+      content: '» ';
+      opacity: 0.5;
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ── Footer ───────────────────────────────────────────── */
+    .footer {
+      margin-top: 2.5rem;
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      opacity: 0.5;
+      letter-spacing: 0.08em;
+    }
+
+    .footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      color: var(--link-color);
+    }
+
+    /* ── Responsive ───────────────────────────────────────── */
+    @media (max-width: 540px) {
+      .patch { padding: 2rem 1.5rem; }
+      .links { flex-direction: column; gap: 1rem; }
+      .title { font-size: 1.6rem; }
+      .logo  { width: 120px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="patch">
+    <div class="fray-left"></div>
+    <div class="fray-right"></div>
+
+    <div class="hero">
+      <img src="../../../../assets/remendo-patch-sm.png" alt="remendo — denim patch with embroidered Tux" class="logo">
+      <h1 class="title">remendo</h1>
+      <p class="subtitle">terminal interface for sashiko agentic patch review</p>
+    </div>
+
+    <hr class="stitch">
+
+    <div class="links">
+      <div class="card">
+        <h2><a href="rustdoc/remendo_tui/index.html">api docs</a></h2>
+        <p>Rustdoc for all public and private items.</p>
+      </div>
+      <div class="card">
+        <h2><a href="coverage/index.html">coverage</a></h2>
+        <p>llvm-cov source-level coverage report.</p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <a href="https://github.com/derekbarbosa/remendo-tui">github</a>
+    </div>
+  </div>
+</body>
+</html>

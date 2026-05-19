@@ -48,7 +48,7 @@ jobs:
         run: |
           mkdir -p target/pages/rustdoc
           mkdir -p target/pages/coverage
-          cp .github/pages/index.html target/pages/index.html
+          cp -r static/* target/pages/
           cp -r target/doc/* target/pages/rustdoc/
           cp -r target/llvm-cov/html/* target/pages/coverage/
 
