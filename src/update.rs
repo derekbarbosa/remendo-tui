@@ -1858,4 +1858,247 @@ mod tests {
         update(&mut app, Message::NextMailbox);
         assert!(!app.show_bookmarks_only);
     }
+
+    // ── handle_page_nav tests ──
+
+    #[test]
+    fn next_page_advances_when_more_pages() {
+        let mut app = App::new(Config::default());
+        app.patchsets.total = 100;
+        app.patchsets.per_page = 50;
+        app.list_params.page = 1;
+        app.selected_index = 5;
+        let cmd = update(&mut app, Message::NextPage);
+        assert_eq!(app.list_params.page, 2);
+        assert_eq!(app.selected_index, 0);
+        assert!(matches!(cmd, Cmd::FetchPatchsets(_)));
+    }
+
+    #[test]
+    fn next_page_noop_on_last_page() {
+        let mut app = App::new(Config::default());
+        app.patchsets.total = 50;
+        app.patchsets.per_page = 50;
+        app.list_params.page = 1;
+        let cmd = update(&mut app, Message::NextPage);
+        assert_eq!(app.list_params.page, 1);
+        assert!(matches!(cmd, Cmd::None));
+    }
+
+    #[test]
+    fn prev_page_goes_back() {
+        let mut app = App::new(Config::default());
+        app.list_params.page = 3;
+        app.selected_index = 5;
+        let cmd = update(&mut app, Message::PrevPage);
+        assert_eq!(app.list_params.page, 2);
+        assert_eq!(app.selected_index, 0);
+        assert!(matches!(cmd, Cmd::FetchPatchsets(_)));
+    }
+
+    #[test]
+    fn prev_page_noop_on_first_page() {
+        let mut app = App::new(Config::default());
+        app.list_params.page = 1;
+        let cmd = update(&mut app, Message::PrevPage);
+        assert_eq!(app.list_params.page, 1);
+        assert!(matches!(cmd, Cmd::None));
+    }
+
+    // ── handle_comment_nav tests ──
+
+    #[test]
+    fn comment_nav_noop_without_detail() {
+        let mut app = App::new(Config::default());
+        let cmd = update(&mut app, Message::NextComment);
+        assert!(matches!(cmd, Cmd::None));
+    }
+
+    #[test]
+    fn comment_nav_forward_from_none() {
+        let mut app = App::new(Config::default());
+        app.view_mode = crate::app::ViewMode::Detail;
+        app.comment_positions = vec![0, 10, 20];
+        app.detail_scroll_offset = 5;
+        app.current_comment_index = None;
+        update(&mut app, Message::NextComment);
+        // First position >= 5 is index 1 (value 10)
+        assert_eq!(app.current_comment_index, Some(1));
+        assert_eq!(app.detail_scroll_offset, 10);
+    }
+
+    #[test]
+    fn comment_nav_backward_from_none() {
+        let mut app = App::new(Config::default());
+        app.view_mode = crate::app::ViewMode::Detail;
+        app.comment_positions = vec![0, 10, 20];
+        app.detail_scroll_offset = 15;
+        app.current_comment_index = None;
+        update(&mut app, Message::PrevComment);
+        // Last position < 15 is index 1 (value 10)
+        assert_eq!(app.current_comment_index, Some(1));
+        assert_eq!(app.detail_scroll_offset, 10);
+    }
+
+    #[test]
+    fn comment_nav_forward_advances() {
+        let mut app = App::new(Config::default());
+        app.view_mode = crate::app::ViewMode::Detail;
+        app.comment_positions = vec![0, 10, 20];
+        app.current_comment_index = Some(0);
+        update(&mut app, Message::NextComment);
+        assert_eq!(app.current_comment_index, Some(1));
+        assert_eq!(app.detail_scroll_offset, 10);
+    }
+
+    #[test]
+    fn comment_nav_forward_clamps_at_last() {
+        let mut app = App::new(Config::default());
+        app.view_mode = crate::app::ViewMode::Detail;
+        app.comment_positions = vec![0, 10, 20];
+        app.current_comment_index = Some(2);
+        update(&mut app, Message::NextComment);
+        assert_eq!(app.current_comment_index, Some(2));
+        assert_eq!(app.detail_scroll_offset, 20);
+    }
+
+    #[test]
+    fn comment_nav_backward_clamps_at_first() {
+        let mut app = App::new(Config::default());
+        app.view_mode = crate::app::ViewMode::Detail;
+        app.comment_positions = vec![0, 10, 20];
+        app.current_comment_index = Some(0);
+        update(&mut app, Message::PrevComment);
+        assert_eq!(app.current_comment_index, Some(0));
+        assert_eq!(app.detail_scroll_offset, 0);
+    }
+
+    // ── handle_sidebar_scroll tests ──
+
+    #[test]
+    fn sidebar_scroll_down_through_remotes() {
+        let mut config = Config::default();
+        config
+            .remotes
+            .push(crate::config::RemoteConfig::fixture("r1"));
+        config
+            .remotes
+            .push(crate::config::RemoteConfig::fixture("r2"));
+        let mut app = App::new(config);
+        app.focus = crate::app::FocusPanel::Sidebar;
+        app.active_remote_index = 0;
+        update(&mut app, Message::ScrollDown);
+        assert_eq!(app.active_remote_index, 1);
+    }
+
+    #[test]
+    fn sidebar_scroll_down_transitions_to_mailing_lists() {
+        let mut config = Config::default();
+        config
+            .remotes
+            .push(crate::config::RemoteConfig::fixture("r1"));
+        let mut app = App::new(config);
+        app.focus = crate::app::FocusPanel::Sidebar;
+        app.active_remote_index = 0;
+        app.mailing_lists = vec![crate::models::MailingList::fixture()];
+        update(&mut app, Message::ScrollDown);
+        assert_eq!(
+            app.sidebar_section,
+            crate::app::SidebarSection::MailingLists
+        );
+        assert_eq!(app.sidebar_list_index, 0);
+    }
+
+    #[test]
+    fn sidebar_scroll_up_in_remotes_clamps() {
+        let mut config = Config::default();
+        config
+            .remotes
+            .push(crate::config::RemoteConfig::fixture("r1"));
+        let mut app = App::new(config);
+        app.focus = crate::app::FocusPanel::Sidebar;
+        app.active_remote_index = 0;
+        update(&mut app, Message::ScrollUp);
+        assert_eq!(app.active_remote_index, 0);
+    }
+
+    #[test]
+    fn sidebar_scroll_down_in_mailing_lists() {
+        let mut config = Config::default();
+        config
+            .remotes
+            .push(crate::config::RemoteConfig::fixture("r1"));
+        let mut app = App::new(config);
+        app.focus = crate::app::FocusPanel::Sidebar;
+        app.sidebar_section = crate::app::SidebarSection::MailingLists;
+        app.mailing_lists = vec![crate::models::MailingList::fixture()];
+        app.sidebar_list_index = 0;
+        update(&mut app, Message::ScrollDown);
+        assert_eq!(app.sidebar_list_index, 1);
+    }
+
+    #[test]
+    fn sidebar_scroll_up_transitions_back_to_remotes() {
+        let mut config = Config::default();
+        config
+            .remotes
+            .push(crate::config::RemoteConfig::fixture("r1"));
+        let mut app = App::new(config);
+        app.focus = crate::app::FocusPanel::Sidebar;
+        app.sidebar_section = crate::app::SidebarSection::MailingLists;
+        app.sidebar_list_index = 0;
+        update(&mut app, Message::ScrollUp);
+        assert_eq!(app.sidebar_section, crate::app::SidebarSection::Remotes);
+    }
+
+    // ── Additional update() branch coverage ──
+
+    #[test]
+    fn back_clears_detail_view() {
+        let mut app = App::new(Config::default());
+        app.view_mode = crate::app::ViewMode::Detail;
+        app.selected_detail = Some(crate::models::PatchsetDetail::fixture());
+        app.detail_scroll_offset = 10;
+        app.comment_positions = vec![1, 2, 3];
+        app.current_comment_index = Some(1);
+        let cmd = update(&mut app, Message::Back);
+        assert_eq!(app.view_mode, crate::app::ViewMode::List);
+        assert!(app.selected_detail.is_none());
+        assert_eq!(app.detail_scroll_offset, 0);
+        assert!(app.comment_positions.is_empty());
+        assert!(app.current_comment_index.is_none());
+        assert!(matches!(cmd, Cmd::None));
+    }
+
+    #[test]
+    fn back_closes_help_overlay() {
+        let mut app = App::new(Config::default());
+        app.show_help = true;
+        let cmd = update(&mut app, Message::Back);
+        assert!(!app.show_help);
+        assert!(matches!(cmd, Cmd::None));
+    }
+
+    #[test]
+    fn toggle_help_on_and_off() {
+        let mut app = App::new(Config::default());
+        update(&mut app, Message::ToggleHelp);
+        assert!(app.show_help);
+        update(&mut app, Message::ToggleHelp);
+        assert!(!app.show_help);
+    }
+
+    #[test]
+    fn bookmarks_persisted_error_is_noop() {
+        let mut app = App::new(Config::default());
+        let cmd = update(&mut app, Message::BookmarksPersisted(Err("test error".to_string())));
+        assert!(matches!(cmd, Cmd::None));
+    }
+
+    #[test]
+    fn bookmarks_persisted_ok_is_noop() {
+        let mut app = App::new(Config::default());
+        let cmd = update(&mut app, Message::BookmarksPersisted(Ok(())));
+        assert!(matches!(cmd, Cmd::None));
+    }
 }

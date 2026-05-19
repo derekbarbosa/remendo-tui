@@ -1477,4 +1477,79 @@ mod tests {
         // 1 header + 2 messages × 2 lines = 5 lines
         assert_eq!(lines.len(), 5);
     }
+
+    #[test]
+    fn detail_header_lines_basic() {
+        let palette = ColorPalette::default();
+        let detail = crate::models::PatchsetDetail::fixture();
+        let mut lines: Vec<Line> = Vec::new();
+        detail_header_lines(&detail, &palette, &mut lines);
+        // Should have at least status line + empty separator
+        assert!(!lines.is_empty());
+        // Last line should be the empty separator
+        assert!(lines.last().unwrap().spans.is_empty() || lines.last().unwrap().to_string().is_empty());
+    }
+
+    #[test]
+    fn detail_header_lines_with_failure_reason() {
+        let palette = ColorPalette::default();
+        let mut detail = crate::models::PatchsetDetail::fixture();
+        detail.failed_reason = Some("compile error".to_string());
+        let mut lines: Vec<Line> = Vec::new();
+        detail_header_lines(&detail, &palette, &mut lines);
+        let text: String = lines.iter().map(|l| l.to_string()).collect::<Vec<_>>().join("\n");
+        assert!(text.contains("compile error"), "got: {text}");
+    }
+
+    #[test]
+    fn detail_header_lines_with_baseline() {
+        let palette = ColorPalette::default();
+        let mut detail = crate::models::PatchsetDetail::fixture();
+        detail.baseline = Some(crate::models::Baseline {
+            branch: Some("main".to_string()),
+            commit: Some("abc123def456".to_string()),
+            repo_url: None,
+        });
+        let mut lines: Vec<Line> = Vec::new();
+        detail_header_lines(&detail, &palette, &mut lines);
+        let text: String = lines.iter().map(|l| l.to_string()).collect::<Vec<_>>().join("\n");
+        assert!(text.contains("Baseline:"), "got: {text}");
+        assert!(text.contains("main"), "got: {text}");
+    }
+
+    #[test]
+    fn detail_header_lines_with_model() {
+        let palette = ColorPalette::default();
+        let mut detail = crate::models::PatchsetDetail::fixture();
+        detail.model_name = Some("gpt-4".to_string());
+        detail.provider = Some("openai".to_string());
+        let mut lines: Vec<Line> = Vec::new();
+        detail_header_lines(&detail, &palette, &mut lines);
+        let text: String = lines.iter().map(|l| l.to_string()).collect::<Vec<_>>().join("\n");
+        assert!(text.contains("Model: openai/gpt-4"), "got: {text}");
+    }
+
+    #[test]
+    fn detail_patches_lines_empty() {
+        let palette = ColorPalette::default();
+        let mut detail = crate::models::PatchsetDetail::fixture();
+        detail.patches.clear();
+        let mut lines: Vec<Line> = Vec::new();
+        detail_patches_lines(&detail, &palette, &mut lines);
+        let text: String = lines.iter().map(|l| l.to_string()).collect::<Vec<_>>().join("\n");
+        assert!(text.contains("Patches (0)"), "got: {text}");
+        assert!(text.contains("(no patches)"), "got: {text}");
+    }
+
+    #[test]
+    fn detail_patches_lines_with_patches() {
+        let palette = ColorPalette::default();
+        let detail = crate::models::PatchsetDetail::fixture();
+        let mut lines: Vec<Line> = Vec::new();
+        detail_patches_lines(&detail, &palette, &mut lines);
+        // Should have header + at least one patch line
+        assert!(lines.len() >= 2);
+        let text: String = lines.iter().map(|l| l.to_string()).collect::<Vec<_>>().join("\n");
+        assert!(text.contains("Patches ("), "got: {text}");
+    }
 }

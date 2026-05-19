@@ -451,4 +451,131 @@ mod tests {
         let enter = KeyCombo::new(KeyCode::Enter, KeyModifiers::NONE);
         assert_eq!(enter.to_string(), "Enter");
     }
+
+    #[test]
+    fn key_combo_display_all_named_keys() {
+        // Cover remaining KeyCode arms in KeyCombo::fmt
+        assert_eq!(
+            KeyCombo::new(KeyCode::Tab, KeyModifiers::NONE).to_string(),
+            "Tab"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::BackTab, KeyModifiers::NONE).to_string(),
+            "S-Tab"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::Esc, KeyModifiers::NONE).to_string(),
+            "Esc"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::Backspace, KeyModifiers::NONE).to_string(),
+            "Backspace"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::Delete, KeyModifiers::NONE).to_string(),
+            "Delete"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::Up, KeyModifiers::NONE).to_string(),
+            "Up"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::Down, KeyModifiers::NONE).to_string(),
+            "Down"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::Left, KeyModifiers::NONE).to_string(),
+            "Left"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::Right, KeyModifiers::NONE).to_string(),
+            "Right"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::Home, KeyModifiers::NONE).to_string(),
+            "Home"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::End, KeyModifiers::NONE).to_string(),
+            "End"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::PageUp, KeyModifiers::NONE).to_string(),
+            "PageUp"
+        );
+        assert_eq!(
+            KeyCombo::new(KeyCode::PageDown, KeyModifiers::NONE).to_string(),
+            "PageDown"
+        );
+        // F-key
+        assert_eq!(
+            KeyCombo::new(KeyCode::F(1), KeyModifiers::NONE).to_string(),
+            "F1"
+        );
+        // Fallback arm
+        assert_eq!(
+            KeyCombo::new(KeyCode::Insert, KeyModifiers::NONE).to_string(),
+            "?"
+        );
+    }
+
+    #[test]
+    fn key_combo_display_modifier_combos() {
+        // Shift modifier
+        assert_eq!(
+            KeyCombo::new(KeyCode::Char('a'), KeyModifiers::SHIFT).to_string(),
+            "S-a"
+        );
+        // Alt modifier
+        assert_eq!(
+            KeyCombo::new(KeyCode::Char('x'), KeyModifiers::ALT).to_string(),
+            "A-x"
+        );
+        // Ctrl+Shift
+        let cs = KeyCombo::new(
+            KeyCode::Char('z'),
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        );
+        assert_eq!(cs.to_string(), "C-S-z");
+        // Ctrl+Alt
+        let ca = KeyCombo::new(
+            KeyCode::Char('m'),
+            KeyModifiers::CONTROL | KeyModifiers::ALT,
+        );
+        assert_eq!(ca.to_string(), "C-A-m");
+    }
+
+    #[test]
+    fn key_action_label_covers_all_variants() {
+        // Exercises every arm of KeyAction::label (CC=25)
+        let labels = [
+            (KeyAction::Quit, "Quit"),
+            (KeyAction::ScrollDown, "Scroll down"),
+            (KeyAction::ScrollUp, "Scroll up"),
+            (KeyAction::ScrollHalfPageDown, "Half page down"),
+            (KeyAction::ScrollHalfPageUp, "Half page up"),
+            (KeyAction::NextMailbox, "Next mailbox"),
+            (KeyAction::PrevMailbox, "Prev mailbox"),
+            (KeyAction::OpenThread, "Open thread"),
+            (KeyAction::CloseThread, "Close / Back"),
+            (KeyAction::Refresh, "Refresh"),
+            (KeyAction::Search, "Search"),
+            (KeyAction::BookmarkToggle, "Toggle bookmark"),
+            (KeyAction::ViewRawLog, "View raw log"),
+            (KeyAction::Help, "Help"),
+            (KeyAction::FocusSidebar, "Focus sidebar"),
+            (KeyAction::NextComment, "Next comment"),
+            (KeyAction::PrevComment, "Prev comment"),
+            (KeyAction::NextPage, "Next page"),
+            (KeyAction::PrevPage, "Prev page"),
+            (KeyAction::ViewBaselineLog, "View baseline log"),
+            (KeyAction::ToggleListContent, "Toggle messages"),
+            (KeyAction::BookmarkFilter, "Bookmark filter"),
+            (KeyAction::CycleSort, "Cycle sort column"),
+            (KeyAction::ReverseSort, "Reverse sort"),
+        ];
+        for (action, expected) in labels {
+            assert_eq!(action.label(), expected, "label mismatch for {action:?}");
+        }
+    }
 }
