@@ -84,23 +84,23 @@ description = "With sort and bookmark filter active in list view, open a patchse
 acceptance_criteria_ref = "PLAN-01 diff-syntax-highlighting: independent of list view features"
 
 [[steps]]
-name = "thread_indentation_independent_of_list_view_features"
+name = "detail_view_independent_of_list_view_state"
 type = "interaction"
 verification_layer = "integration-artifact-runtime"
 proof_depth = "functional"
 executor = "host-native"
-tags = ["thread-indentation", "column-sorting", "bookmark-filtering", "tui-detail-view"]
+tags = ["column-sorting", "bookmark-filtering", "tui-detail-view"]
 group = "cross-feature"
-description = "With sort and bookmark filter active, navigate to detail view — verify thread indentation renders correctly and compute_comment_positions is not affected by list view state."
-acceptance_criteria_ref = "PLAN-01 thread-indentation: independent of list view features"
+description = "With sort and bookmark filter active, navigate to detail view — verify thread rendering and compute_comment_positions are not affected by list view state."
+acceptance_criteria_ref = "Detail view rendering independent of list view sort/filter state"
 
 [[steps]]
-name = "diff_and_thread_in_same_detail_view"
+name = "diff_highlighting_and_thread_in_same_detail_view"
 type = "interaction"
 verification_layer = "integration-artifact-runtime"
 proof_depth = "functional"
 executor = "host-native"
-tags = ["diff-syntax-highlighting", "thread-indentation", "tui-detail-view"]
+tags = ["diff-syntax-highlighting", "tui-detail-view"]
 group = "cross-feature"
-description = "Open a patchset detail with both a thread (with replies) and a message containing a diff — verify both thread indentation and diff syntax highlighting render correctly in the same view without layout conflicts."
-acceptance_criteria_ref = "PLAN-01 diff-syntax-highlighting + PLAN-01 thread-indentation: coexistence in detail view"
+description = "Open a patchset detail with both a thread and inline reviews containing diff — verify diff syntax highlighting in the review section renders correctly alongside the thread section."
+acceptance_criteria_ref = "Diff highlighting in inline reviews coexists with thread rendering in detail view"

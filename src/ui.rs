@@ -560,7 +560,7 @@ fn classify_review_line(line: &str, seen_quoted: bool, palette: &ColorPalette) -
 
     if line.starts_with('>') {
         // Quoted content — strip quoting and classify as diff
-        let stripped = strip_email_quoting(line);
+        let stripped = strip_review_quoting(line);
         classify_diff_line(stripped, palette)
     } else if seen_quoted {
         // Unquoted after we've seen quoted content — reviewer commentary
@@ -575,7 +575,7 @@ fn classify_review_line(line: &str, seen_quoted: bool, palette: &ColorPalette) -
 ///
 /// Sashiko inline reviews quote patch content with `>` prefixes.
 /// Handles `"> "`, `">"`, and nested quoting like `">> "`.
-fn strip_email_quoting(line: &str) -> &str {
+fn strip_review_quoting(line: &str) -> &str {
     let mut s = line;
     while s.starts_with('>') {
         s = s.strip_prefix('>').unwrap_or(s);
@@ -1403,36 +1403,36 @@ mod tests {
         assert_eq!(styles[14], Some(palette.foreground.color()), "commentary");
     }
 
-    // strip_email_quoting unit tests
+    // strip_review_quoting unit tests
 
     #[test]
-    fn strip_email_quoting_no_prefix() {
-        assert_eq!(strip_email_quoting("+added line"), "+added line");
+    fn strip_review_quoting_no_prefix() {
+        assert_eq!(strip_review_quoting("+added line"), "+added line");
     }
 
     #[test]
-    fn strip_email_quoting_single_level() {
-        assert_eq!(strip_email_quoting("> +added line"), "+added line");
+    fn strip_review_quoting_single_level() {
+        assert_eq!(strip_review_quoting("> +added line"), "+added line");
     }
 
     #[test]
-    fn strip_email_quoting_double_level() {
-        assert_eq!(strip_email_quoting(">> +added line"), "+added line");
+    fn strip_review_quoting_double_level() {
+        assert_eq!(strip_review_quoting(">> +added line"), "+added line");
     }
 
     #[test]
-    fn strip_email_quoting_no_space() {
-        assert_eq!(strip_email_quoting(">+added line"), "+added line");
+    fn strip_review_quoting_no_space() {
+        assert_eq!(strip_review_quoting(">+added line"), "+added line");
     }
 
     #[test]
-    fn strip_email_quoting_empty() {
-        assert_eq!(strip_email_quoting(""), "");
+    fn strip_review_quoting_empty() {
+        assert_eq!(strip_review_quoting(""), "");
     }
 
     #[test]
-    fn strip_email_quoting_only_chevron() {
-        assert_eq!(strip_email_quoting("> "), "");
+    fn strip_review_quoting_only_chevron() {
+        assert_eq!(strip_review_quoting("> "), "");
     }
 
     // --- thread rendering test ---
