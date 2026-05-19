@@ -152,10 +152,13 @@ Falls back to `RUST_LOG` if `REMENDO_LOG` is not set.
 - Comment navigation in detail view (`n`/`N` to jump between reviews)
 - In-memory API response caching with configurable TTL
 - File-based debug logging via `REMENDO_LOG`
-- 210+ unit and integration tests
+- 260+ unit and integration tests
 
-Upcoming work includes authentication support, disk-based cache persistence,
-and a message browser view.
+See [`apogee_artifacts/features/ROADMAP.md`](apogee_artifacts/features/ROADMAP.md)
+for the full development roadmap. Next priorities: authentication support
+(wiring the existing `auth_env` config), review API integration (surfacing
+the unused `/api/review` and `/api/review_log` endpoints), and disk-based
+cache persistence.
 
 ## Requirements
 
