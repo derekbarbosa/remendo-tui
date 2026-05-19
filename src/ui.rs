@@ -7,14 +7,13 @@
 use crate::app::{App, FocusPanel, InputMode, ListContent, SortColumn, SortDirection, ViewMode};
 use crate::config::theme::ColorPalette;
 use crate::models::{FindingCounts, PatchsetStatus};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{
-    Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Table, TableState,
-    Wrap,
+    Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row, Table, TableState, Wrap,
 };
-use ratatui::Frame;
 
 /// Render the application state into the given frame.
 ///
@@ -80,25 +79,29 @@ fn panel_border_color(
 }
 
 /// Render the remote/mailbox sidebar in the given area.
-fn render_sidebar(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, palette: &ColorPalette) {
+fn render_sidebar(
+    app: &App,
+    frame: &mut Frame,
+    area: ratatui::layout::Rect,
+    palette: &ColorPalette,
+) {
     use crate::app::SidebarSection;
 
     let remote_count = app.config.remotes.len();
-    let remote_height = u16::try_from(remote_count + 2).unwrap_or(5).min(area.height / 2);
+    let remote_height = u16::try_from(remote_count + 2)
+        .unwrap_or(5)
+        .min(area.height / 2);
 
-    let sidebar_chunks = Layout::vertical([
-        Constraint::Length(remote_height),
-        Constraint::Min(3),
-    ])
-    .split(area);
+    let sidebar_chunks =
+        Layout::vertical([Constraint::Length(remote_height), Constraint::Min(3)]).split(area);
 
     let highlight_style = Style::default()
         .bg(palette.selected_bg.color())
         .fg(palette.selected_fg.color());
 
     // --- Remotes section ---
-    let remotes_focused = app.focus == FocusPanel::Sidebar
-        && app.sidebar_section == SidebarSection::Remotes;
+    let remotes_focused =
+        app.focus == FocusPanel::Sidebar && app.sidebar_section == SidebarSection::Remotes;
     let remotes_border = if remotes_focused {
         palette.accent.color()
     } else {
@@ -127,8 +130,8 @@ fn render_sidebar(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, pal
     frame.render_stateful_widget(remotes_list, sidebar_chunks[0], &mut remotes_state);
 
     // --- Mailing lists section ---
-    let lists_focused = app.focus == FocusPanel::Sidebar
-        && app.sidebar_section == SidebarSection::MailingLists;
+    let lists_focused =
+        app.focus == FocusPanel::Sidebar && app.sidebar_section == SidebarSection::MailingLists;
     let lists_border = if lists_focused {
         palette.accent.color()
     } else {
@@ -174,7 +177,11 @@ fn build_main_title(app: &App) -> String {
         &app.active_remote
     };
     let (content_label, content_total, total_pages) = match app.list_content {
-        ListContent::Patchsets => ("patchsets", app.patchsets.total, app.patchsets.total_pages()),
+        ListContent::Patchsets => (
+            "patchsets",
+            app.patchsets.total,
+            app.patchsets.total_pages(),
+        ),
         ListContent::Messages => ("messages", app.messages.total, app.messages.total_pages()),
     };
     let page_indicator = if total_pages > 1 {
@@ -192,19 +199,30 @@ fn build_main_title(app: &App) -> String {
         .mailing_list
         .as_ref()
         .map_or(String::new(), |l| format!(" | list: {l}"));
-    let bookmark_indicator = if app.show_bookmarks_only { " | [B] bookmarks" } else { "" };
+    let bookmark_indicator = if app.show_bookmarks_only {
+        " | [B] bookmarks"
+    } else {
+        ""
+    };
     if let Some(ref stats) = app.stats {
         format!(
             " remendo | {remote} | v{} | {} pending | {} reviewing | {content_total} {content_label}{page_indicator}{search_indicator}{list_indicator}{bookmark_indicator} ",
             stats.version, stats.pending, stats.reviewing
         )
     } else {
-        format!(" remendo | {remote} | {content_total} {content_label}{page_indicator}{search_indicator}{list_indicator}{bookmark_indicator} ")
+        format!(
+            " remendo | {remote} | {content_total} {content_label}{page_indicator}{search_indicator}{list_indicator}{bookmark_indicator} "
+        )
     }
 }
 
 /// Render the main patchset pane (table or placeholder) in the given area.
-fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, palette: &ColorPalette) {
+fn render_main_pane(
+    app: &App,
+    frame: &mut Frame,
+    area: ratatui::layout::Rect,
+    palette: &ColorPalette,
+) {
     let border_color = panel_border_color(app.focus, FocusPanel::PatchsetList, palette);
     let status = build_main_title(app);
 
@@ -242,10 +260,7 @@ fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, p
         .patchsets
         .items
         .iter()
-        .filter(|ps| {
-            !app.show_bookmarks_only
-                || app.bookmarks.contains(&app.active_remote, ps.id)
-        })
+        .filter(|ps| !app.show_bookmarks_only || app.bookmarks.contains(&app.active_remote, ps.id))
         .map(|ps| build_patchset_row(app, ps, palette))
         .collect();
 
@@ -309,10 +324,7 @@ fn render_main_pane(app: &App, frame: &mut Frame, area: ratatui::layout::Rect, p
             search_area,
         );
         #[allow(clippy::cast_possible_truncation)]
-        frame.set_cursor_position((
-            search_area.x + 1 + app.search_cursor as u16,
-            search_area.y,
-        ));
+        frame.set_cursor_position((search_area.x + 1 + app.search_cursor as u16, search_area.y));
     }
 }
 
@@ -393,10 +405,7 @@ fn format_findings<'a>(findings: &FindingCounts, palette: &'a ColorPalette) -> L
         if !spans.is_empty() {
             spans.push(Span::raw(" "));
         }
-        spans.push(Span::styled(
-            format!("{}L", findings.low),
-            default_style,
-        ));
+        spans.push(Span::styled(format!("{}L", findings.low), default_style));
     }
 
     Line::from(spans)
@@ -476,8 +485,7 @@ fn render_message_table(
                 Cell::from(msg.subject.as_deref().unwrap_or("(no subject)")),
                 Cell::from(msg.author.as_deref().unwrap_or("(unknown)"))
                     .style(Style::default().fg(palette.muted.color())),
-                Cell::from(format_date(msg.date))
-                    .style(Style::default().fg(palette.muted.color())),
+                Cell::from(format_date(msg.date)).style(Style::default().fg(palette.muted.color())),
                 Cell::from(msg.mailing_list.as_deref().unwrap_or(""))
                     .style(Style::default().fg(palette.muted.color())),
             ])
@@ -520,8 +528,10 @@ fn render_message_table(
 /// Used for `EmailMessage.diff` content which is pure diff output.
 /// Context lines and unrecognized content render as `muted`.
 fn classify_diff_line(line: &str, palette: &ColorPalette) -> Style {
-    if line.starts_with("+++") || line.starts_with("---")
-        || line.starts_with("diff ") || line.starts_with("index ")
+    if line.starts_with("+++")
+        || line.starts_with("---")
+        || line.starts_with("diff ")
+        || line.starts_with("index ")
     {
         Style::default().fg(palette.foreground.color()).bold()
     } else if line.starts_with("@@") {
@@ -836,10 +846,7 @@ fn detail_header_lines<'a>(
             .commit
             .as_deref()
             .map_or("?", |c| if c.len() > 12 { &c[..12] } else { c });
-        let has_logs = detail
-            .baseline_logs
-            .as_ref()
-            .is_some_and(|s| !s.is_empty());
+        let has_logs = detail.baseline_logs.as_ref().is_some_and(|s| !s.is_empty());
         let mut spans = vec![Span::styled(
             format!("Baseline: {branch} @ {commit}"),
             Style::default().fg(palette.info.color()),
@@ -986,7 +993,9 @@ mod tests {
     fn make_config_with_remotes(names: &[&str]) -> Config {
         let mut config = Config::default();
         for name in names {
-            config.remotes.push(crate::config::RemoteConfig::fixture(name));
+            config
+                .remotes
+                .push(crate::config::RemoteConfig::fixture(name));
         }
         config
     }
@@ -1270,7 +1279,8 @@ mod tests {
     #[test]
     fn review_line_metadata_author() {
         let palette = ColorPalette::default();
-        let style = classify_review_line("Author: Audra Mitchell <audra@redhat.com>", false, &palette);
+        let style =
+            classify_review_line("Author: Audra Mitchell <audra@redhat.com>", false, &palette);
         assert_eq!(style.fg, Some(palette.muted.color()));
     }
 
@@ -1487,7 +1497,8 @@ mod tests {
         // Should have at least status line + empty separator
         assert!(!lines.is_empty());
         // Last line should be the empty separator
-        assert!(lines.last().unwrap().spans.is_empty() || lines.last().unwrap().to_string().is_empty());
+        let last = lines.last().expect("should have lines");
+        assert!(last.spans.is_empty() || last.to_string().is_empty());
     }
 
     #[test]
@@ -1497,7 +1508,11 @@ mod tests {
         detail.failed_reason = Some("compile error".to_string());
         let mut lines: Vec<Line> = Vec::new();
         detail_header_lines(&detail, &palette, &mut lines);
-        let text: String = lines.iter().map(|l| l.to_string()).collect::<Vec<_>>().join("\n");
+        let text: String = lines
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(text.contains("compile error"), "got: {text}");
     }
 
@@ -1512,7 +1527,11 @@ mod tests {
         });
         let mut lines: Vec<Line> = Vec::new();
         detail_header_lines(&detail, &palette, &mut lines);
-        let text: String = lines.iter().map(|l| l.to_string()).collect::<Vec<_>>().join("\n");
+        let text: String = lines
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(text.contains("Baseline:"), "got: {text}");
         assert!(text.contains("main"), "got: {text}");
     }
@@ -1525,7 +1544,11 @@ mod tests {
         detail.provider = Some("openai".to_string());
         let mut lines: Vec<Line> = Vec::new();
         detail_header_lines(&detail, &palette, &mut lines);
-        let text: String = lines.iter().map(|l| l.to_string()).collect::<Vec<_>>().join("\n");
+        let text: String = lines
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(text.contains("Model: openai/gpt-4"), "got: {text}");
     }
 
@@ -1536,7 +1559,11 @@ mod tests {
         detail.patches.clear();
         let mut lines: Vec<Line> = Vec::new();
         detail_patches_lines(&detail, &palette, &mut lines);
-        let text: String = lines.iter().map(|l| l.to_string()).collect::<Vec<_>>().join("\n");
+        let text: String = lines
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(text.contains("Patches (0)"), "got: {text}");
         assert!(text.contains("(no patches)"), "got: {text}");
     }
@@ -1549,7 +1576,11 @@ mod tests {
         detail_patches_lines(&detail, &palette, &mut lines);
         // Should have header + at least one patch line
         assert!(lines.len() >= 2);
-        let text: String = lines.iter().map(|l| l.to_string()).collect::<Vec<_>>().join("\n");
+        let text: String = lines
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
         assert!(text.contains("Patches ("), "got: {text}");
     }
 }

@@ -29,29 +29,8 @@ jobs:
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-llvm-cov
-
-      # Build rustdoc into target/doc/
-      - name: Build rustdoc
-        run: cargo doc --no-deps --document-private-items
-        env:
-          RUSTDOCFLAGS: "--cfg docsrs -D warnings"
-
-      # Build llvm-cov HTML report into target/llvm-cov/html/
-      - name: Build coverage report
-        run: cargo llvm-cov --all-targets --no-fail-fast --html --output-dir target/llvm-cov
-
-      # Assemble the Pages site:
-      #   /            -> index.html (links to both)
-      #   /rustdoc/    -> rustdoc output
-      #   /coverage/   -> llvm-cov HTML output
-      - name: Assemble Pages site
-        run: |
-          mkdir -p target/pages/rustdoc
-          mkdir -p target/pages/coverage
-          cp -r static/* target/pages/
-          cp -r target/doc/* target/pages/rustdoc/
-          cp -r target/llvm-cov/html/* target/pages/coverage/
-
+      - name: Build Pages site
+        run: scripts/docs.sh
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

@@ -1,5 +1,7 @@
 # remendo
 
+![Remendo Logo](static/assets/remendo-logo.png)
+
 > "Remendo" is a Portuguese word that translates to *patch*, *mend*, or *repair*.
 > It refers to a piece of material used to cover a hole or strengthen a damaged
 > area -- much like the kernel patches this tool helps you review.

@@ -258,7 +258,9 @@ mod tests {
     #[test]
     fn app_with_remotes_sets_active() {
         let mut config = Config::default();
-        config.remotes.push(crate::config::RemoteConfig::fixture("upstream"));
+        config
+            .remotes
+            .push(crate::config::RemoteConfig::fixture("upstream"));
         let app = App::new(config);
         assert_eq!(app.active_remote, "upstream");
     }

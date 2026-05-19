@@ -138,6 +138,7 @@ fn action_to_message(action: KeyAction) -> Option<Message> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::config::Config;
@@ -307,11 +308,8 @@ mod tests {
 
     #[test]
     fn handle_search_key_char_input() {
-        let key = KeyEvent::new_with_kind(
-            KeyCode::Char('a'),
-            KeyModifiers::NONE,
-            KeyEventKind::Press,
-        );
+        let key =
+            KeyEvent::new_with_kind(KeyCode::Char('a'), KeyModifiers::NONE, KeyEventKind::Press);
         assert!(matches!(
             handle_search_key(key),
             Some(Message::SearchInput('a'))
@@ -320,11 +318,8 @@ mod tests {
 
     #[test]
     fn handle_search_key_backspace() {
-        let key = KeyEvent::new_with_kind(
-            KeyCode::Backspace,
-            KeyModifiers::NONE,
-            KeyEventKind::Press,
-        );
+        let key =
+            KeyEvent::new_with_kind(KeyCode::Backspace, KeyModifiers::NONE, KeyEventKind::Press);
         assert!(matches!(
             handle_search_key(key),
             Some(Message::SearchInput('\x08'))
@@ -333,22 +328,20 @@ mod tests {
 
     #[test]
     fn handle_search_key_enter_submits() {
-        let key = KeyEvent::new_with_kind(
-            KeyCode::Enter,
-            KeyModifiers::NONE,
-            KeyEventKind::Press,
-        );
-        assert!(matches!(handle_search_key(key), Some(Message::SearchSubmit)));
+        let key = KeyEvent::new_with_kind(KeyCode::Enter, KeyModifiers::NONE, KeyEventKind::Press);
+        assert!(matches!(
+            handle_search_key(key),
+            Some(Message::SearchSubmit)
+        ));
     }
 
     #[test]
     fn handle_search_key_esc_cancels() {
-        let key = KeyEvent::new_with_kind(
-            KeyCode::Esc,
-            KeyModifiers::NONE,
-            KeyEventKind::Press,
-        );
-        assert!(matches!(handle_search_key(key), Some(Message::SearchCancel)));
+        let key = KeyEvent::new_with_kind(KeyCode::Esc, KeyModifiers::NONE, KeyEventKind::Press);
+        assert!(matches!(
+            handle_search_key(key),
+            Some(Message::SearchCancel)
+        ));
     }
 
     #[test]
@@ -363,11 +356,7 @@ mod tests {
 
     #[test]
     fn handle_search_key_unknown_returns_none() {
-        let key = KeyEvent::new_with_kind(
-            KeyCode::F(1),
-            KeyModifiers::NONE,
-            KeyEventKind::Press,
-        );
+        let key = KeyEvent::new_with_kind(KeyCode::F(1), KeyModifiers::NONE, KeyEventKind::Press);
         assert!(handle_search_key(key).is_none());
     }
 
@@ -402,9 +391,12 @@ mod tests {
         ];
         for (action, expected) in pairs {
             let result = action_to_message(action);
-            assert!(result.is_some(), "action_to_message({action:?}) returned None");
+            assert!(
+                result.is_some(),
+                "action_to_message({action:?}) returned None"
+            );
             assert_eq!(
-                std::mem::discriminant(&result.unwrap()),
+                std::mem::discriminant(&result.expect("should be Some")),
                 std::mem::discriminant(&expected),
                 "mismatch for {action:?}"
             );

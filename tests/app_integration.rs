@@ -6,8 +6,8 @@ use remendo_tui::app::{App, FocusPanel, RunningState, SortColumn, SortDirection,
 use remendo_tui::client::ApiError;
 use remendo_tui::cmd::Cmd;
 use remendo_tui::config::{Config, RemoteConfig};
-use remendo_tui::models::{MailingList, PatchId, Paginated, Patchset, PatchsetDetail};
-use remendo_tui::update::{update, Message};
+use remendo_tui::models::{MailingList, Paginated, PatchId, Patchset, PatchsetDetail};
+use remendo_tui::update::{Message, update};
 
 fn app_with_remotes(names: &[&str]) -> App {
     let mut config = Config::default();
@@ -341,10 +341,7 @@ fn detail_load_error_sets_error_state() {
         source: "connection refused".into(),
         remote: "upstream".to_string(),
     };
-    update(
-        &mut app,
-        Message::PatchsetDetailLoaded(Box::new(Err(err))),
-    );
+    update(&mut app, Message::PatchsetDetailLoaded(Box::new(Err(err))));
 
     assert!(app.error_state.is_some());
     assert_eq!(app.view_mode, ViewMode::List); // stays on list
@@ -446,10 +443,7 @@ fn select_loading_error_returns_to_list() {
         source: "timeout".into(),
         remote: "upstream".to_string(),
     };
-    update(
-        &mut app,
-        Message::PatchsetDetailLoaded(Box::new(Err(err))),
-    );
+    update(&mut app, Message::PatchsetDetailLoaded(Box::new(Err(err))));
     assert_eq!(app.view_mode, ViewMode::List);
     assert!(app.loading_context.is_none());
     assert!(app.error_state.is_some());
@@ -563,8 +557,14 @@ fn bookmark_filter_then_sort_change() {
     assert_eq!(app.sort_column, SortColumn::Author);
 
     // Items should be re-sorted: alice first, zebra second
-    assert_eq!(app.patchsets.items[0].author.as_deref(), Some("alice@example.com"));
-    assert_eq!(app.patchsets.items[1].author.as_deref(), Some("zebra@example.com"));
+    assert_eq!(
+        app.patchsets.items[0].author.as_deref(),
+        Some("alice@example.com")
+    );
+    assert_eq!(
+        app.patchsets.items[1].author.as_deref(),
+        Some("zebra@example.com")
+    );
     // Filter still active
     assert!(app.show_bookmarks_only);
 }
@@ -608,8 +608,14 @@ fn page_load_preserves_sort_and_filter() {
     update(&mut app, Message::PatchsetsLoaded(Ok(paginated)));
 
     // Sort should have been reapplied: FailedToApply (key=0) before Reviewed (key=7)
-    assert_eq!(app.patchsets.items[0].status, remendo_tui::models::PatchsetStatus::FailedToApply);
-    assert_eq!(app.patchsets.items[1].status, remendo_tui::models::PatchsetStatus::Reviewed);
+    assert_eq!(
+        app.patchsets.items[0].status,
+        remendo_tui::models::PatchsetStatus::FailedToApply
+    );
+    assert_eq!(
+        app.patchsets.items[1].status,
+        remendo_tui::models::PatchsetStatus::Reviewed
+    );
     // Filter flag still active
     assert!(app.show_bookmarks_only);
     // Sort column preserved

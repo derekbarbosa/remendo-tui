@@ -3,8 +3,7 @@
 //!
 //! This library crate exposes the core modules for integration
 //! testing. The binary entry point is in `src/main.rs`.
-#![warn(clippy::pedantic, clippy::style, clippy::perf)]
-#![deny(clippy::unwrap_used)]
+// Lint levels are configured in Cargo.toml [lints.clippy].
 
 /// Application state and lifecycle.
 pub mod app;
