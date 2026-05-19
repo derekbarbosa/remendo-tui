@@ -154,11 +154,9 @@ Falls back to `RUST_LOG` if `REMENDO_LOG` is not set.
 - File-based debug logging via `REMENDO_LOG`
 - 260+ unit and integration tests
 
-See [`apogee_artifacts/features/ROADMAP.md`](apogee_artifacts/features/ROADMAP.md)
-for the full development roadmap. Next priorities: authentication support
-(wiring the existing `auth_env` config), review API integration (surfacing
-the unused `/api/review` and `/api/review_log` endpoints), and disk-based
-cache persistence.
+Next priorities: authentication support (wiring the existing `auth_env`
+config), review API integration (surfacing the `/api/review` and
+`/api/review_log` endpoints), and disk-based cache persistence.
 
 ## Requirements
 
