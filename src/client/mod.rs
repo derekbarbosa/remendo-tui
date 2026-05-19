@@ -1,8 +1,8 @@
 //! Sashiko API client: trait, HTTP implementation, error types.
 //!
 //! Provides a type-safe, async interface for accessing Sashiko
-//! instances. The [`SashikoApi`] trait abstracts the API surface;
-//! [`HttpClient`] is the production implementation using `reqwest`.
+//! instances. The `SashikoApi` trait abstracts the API surface;
+//! `HttpClient` is the production implementation using `reqwest`.
 
 pub mod api;
 pub mod cache;
