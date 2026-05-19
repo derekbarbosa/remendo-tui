@@ -76,7 +76,7 @@ pub struct Review {
     /// LLM provider.
     #[serde(default)]
     pub provider: Option<String>,
-    /// Inline review text (LKML-formatted reply).
+    /// Full inline review output from the Sashiko review pipeline.
     #[serde(default)]
     pub inline_review: Option<String>,
     /// Summary of the review.
