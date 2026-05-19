@@ -10,15 +10,15 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-Dwarnings"
 
+# Toolchain version is pinned in rust-toolchain.toml — rustup installs it
+# automatically on checkout. No dtolnay/rust-toolchain step needed.
+
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Lint
         run: scripts/lint.sh
@@ -29,7 +29,6 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Test
         run: scripts/test.sh
@@ -40,9 +39,6 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Coverage
@@ -61,9 +57,6 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Install cargo-crap
@@ -87,9 +80,6 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Install cargo-crap

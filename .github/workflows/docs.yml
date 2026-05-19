@@ -18,17 +18,18 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
 
+# Toolchain version is pinned in rust-toolchain.toml.
+
 jobs:
   build:
     name: Build Documentation & Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install cargo-crap
+        run: cargo install cargo-crap --locked
       - name: Build Pages site
         run: scripts/docs.sh
       - name: Upload Pages artifact

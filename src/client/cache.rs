@@ -249,7 +249,7 @@ mod tests {
         };
         mock.set_patchsets(Ok(patchsets));
 
-        let cached = CachingClient::new(mock, Duration::from_secs(300));
+        let cached = CachingClient::new(mock, Duration::from_mins(5));
 
         // First call: cache miss, fetches from mock
         let result1 = cached.patchsets(&ListParams::default()).await;
@@ -266,7 +266,7 @@ mod tests {
         let mock = Arc::new(MockClient::new());
         mock.set_stats(Ok(ServerStats::fixture()));
 
-        let cached = CachingClient::new(mock, Duration::from_secs(300));
+        let cached = CachingClient::new(mock, Duration::from_mins(5));
 
         let _ = cached.stats().await;
         cached.clear_cache();
@@ -302,7 +302,7 @@ mod tests {
         };
         mock.set_patchsets(Ok(patchsets));
 
-        let cached = CachingClient::new(mock, Duration::from_secs(300));
+        let cached = CachingClient::new(mock, Duration::from_mins(5));
 
         let params1 = ListParams::default();
         let params2 = ListParams {
