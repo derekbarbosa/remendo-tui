@@ -5,6 +5,8 @@ description = "A terminal based interface for interacting with agentic patch rev
 authors = ["derekbarbosa <derekasobrab@gmail.com>"]
 license = "AGPL-3.0-or-later"
 edition = "2024"
+repository = "https://github.com/derekbarbosa/remendo-tui"
+homepage = "https://derekbarbosa.github.io/remendo-tui/"
 
 [features]
 test-support = []
