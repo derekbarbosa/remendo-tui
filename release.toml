@@ -1,0 +1,13 @@
+# cargo-release configuration
+# https://github.com/crate-ci/cargo-release
+
+allow-branch = ["main"]
+sign-commit = true
+sign-tag = true
+push-remote = "origin"
+
+# tag-prefix defaults to "v", so tag = v0.1.0
+# {{version}} in templates is the bare number (0.1.0)
+pre-release-hook = ["git-cliff", "--output", "CHANGELOG.md", "--tag", "v{{version}}"]
+pre-release-commit-message = "release: v{{version}}"
+tag-message = "remendo v{{version}}"

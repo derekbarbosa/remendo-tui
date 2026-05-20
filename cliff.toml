@@ -1,0 +1,57 @@
+# git-cliff configuration
+# https://git-cliff.org
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to remendo are documented here.\n
+"""
+body = """
+{%- macro remote_url() -%}https://github.com/derekbarbosa/remendo-tui{%- endmacro -%}
+
+{% if version -%}
+    ## [{{ version | trim_start_matches(pat="v") }}] — {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+    ## [Unreleased]
+{% endif -%}
+
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | striptags | trim | upper_first }}
+    {% for commit in commits %}
+        - {{ commit.message | upper_first | split(pat="\n") | first }}\
+    {% endfor %}
+{% endfor %}\n
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = false
+filter_unconventional = false
+split_commits = false
+protect_breaking_commits = false
+filter_commits = true
+tag_pattern = "v[0-9].*"
+sort_commits = "newest"
+
+commit_parsers = [
+    # Conventional commit prefixes (highest priority)
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^refactor", group = "Refactoring" },
+    { message = "^test", group = "Testing" },
+    { message = "^doc|^docs", group = "Documentation" },
+    { message = "^ci|^CI", group = "CI/CD" },
+    { message = "^chore", group = "Miscellaneous" },
+    { message = "^release:", skip = true },
+    # Keyword-based categorization for non-conventional commits
+    { message = "(?i)Add.*module|Add.*client|Add.*view|Add.*feature|Add.*key|Add.*Esc|Add.*column|Add.*sort|Add.*bookmark|Add.*search|Add.*pagination|Add.*dialog|Add.*overlay|Add.*sidebar|Add.*patchset|Add.*metadata|Add.*browser|Add.*cache|Implement|Wire", group = "Features" },
+    { message = "(?i)Add.*test|Add.*coverage|CRAP.*test|snapshot|insta|integration test", group = "Testing" },
+    { message = "(?i)Fix|Revert|Restore", group = "Bug Fixes" },
+    { message = "(?i)Rename|Move|Remove|Clean|Prepare|Pin|Gitignore|gitignore", group = "Refactoring" },
+    { message = "(?i)CRAP.*badge|CRAP.*PR|CRAP.*epsilon|Makefile|script|workflow|CI|baseline|nightly|release\\.yml|toolchain|llvm-cov|coverage.*CI", group = "CI/CD" },
+    { message = "(?i)README|CONTRIBUTING|LICENSE|docs|doc|User Guide|Pages|static|badge|theme|denim|index\\.html|Document|acknowledgement|CHANGELOG", group = "Documentation" },
+    { message = "(?i)Add.*scaffold|Initial Commit|Cargo\\.toml.*publish|crates\\.io", group = "Miscellaneous" },
+    { body = ".*", group = "Other" },
+]

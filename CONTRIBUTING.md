@@ -93,6 +93,25 @@ make ci    # lint → test → coverage → crap
 - **One concern per PR**: Keep PRs focused. Large refactors should be separate
   from feature work.
 
+## Releases
+
+Releases are managed with [cargo-release](https://github.com/crate-ci/cargo-release)
+and [git-cliff](https://git-cliff.org/). Only maintainers cut releases.
+
+```sh
+cargo release patch --execute   # 0.1.0 → 0.1.1
+cargo release minor --execute   # 0.1.0 → 0.2.0
+```
+
+This generates a changelog from commit history, commits it, publishes to
+crates.io, creates a signed tag, and pushes — triggering a GitHub Release
+with binary assets.
+
+**Commit message tips for good changelogs**: Start commit messages with a
+keyword like `Add`, `Fix`, `Refactor`, `Remove`, or use conventional commit
+prefixes (`feat:`, `fix:`, `docs:`, `test:`, `ci:`). The changelog generator
+(`cliff.toml`) categorizes commits by these patterns.
+
 ## Domain language
 
 remendo interacts with the **Sashiko API** — an agentic patch review platform.

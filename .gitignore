@@ -11,3 +11,5 @@ apogee_artifacts/
 # Apogee local config (per-developer, not shared)
 .mcp.json
 .design-approved
+AGENTS.md
+CLAUDE.md
