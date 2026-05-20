@@ -61,7 +61,7 @@ jobs:
           echo "ARCHIVE=${RELEASE_NAME}.tar.gz" >> $GITHUB_ENV
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-binary
           path: "*.tar.gz"
