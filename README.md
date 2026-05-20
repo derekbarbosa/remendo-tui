@@ -53,7 +53,7 @@ cargo build --release
 # Binary is at target/release/remendo
 ```
 
-### Cargo install (once published)
+### Cargo install
 
 ```sh
 cargo install remendo
