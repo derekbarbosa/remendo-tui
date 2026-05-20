@@ -44,7 +44,7 @@ jobs:
       - name: Coverage
         run: scripts/coverage.sh
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: lcov.info
@@ -64,7 +64,7 @@ jobs:
       - name: Generate CRAP baseline
         run: scripts/crap.sh baseline
       - name: Upload CRAP baseline
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: crap-baseline
           path: crap-baseline.json
