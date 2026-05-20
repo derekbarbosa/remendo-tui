@@ -6,6 +6,8 @@
 
 <div align="center">
 
+![Static Badge](https://img.shields.io/badge/Vibe_Coded-orange)
+
 [![CRAP score](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fderekbarbosa.github.io%2Fremendo-tui%2Fcrap-badge.json&query=%24.message&label=CRAP&color=green)](https://derekbarbosa.github.io/remendo-tui/crap/) [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
 ![GitHub Pull Requests](https://img.shields.io/github/issues-pr/derekbarbosa/remendo-tui) ![GitHub Issues](https://img.shields.io/github/issues/derekbarbosa/remendo-tui) ![GitHub last commit](https://img.shields.io/github/last-commit/derekbarbosa/remendo-tui)
@@ -186,3 +188,10 @@ for the full series plan.
 ## License
 
 AGPL-3.0-or-later. See [LICENSE](LICENSE) for details.
+
+## Acknowledgements
+
+This project was developed with the assistance of large language models. All
+AI-assisted commits are attributed with an `Assisted-by` trailer in the git
+history. All generated code was reviewed, tested, and approved by a human
+maintainer before merging.
