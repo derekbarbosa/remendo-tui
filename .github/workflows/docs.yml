@@ -33,7 +33,7 @@ jobs:
       - name: Build Pages site
         run: scripts/docs.sh
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: target/pages
 
