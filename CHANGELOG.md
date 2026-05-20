@@ -30,6 +30,7 @@ All notable changes to remendo are documented here.
 
 ### Features
 
+- Add cargo-release and git-cliff configuration
 - Add Esc key to clear search filter in list view
 - Prepare Cargo.toml for crates.io publishing
 - Add CONTRIBUTING.md and Cargo.toml repository metadata
