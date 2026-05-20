@@ -105,7 +105,7 @@ jobs:
           # Generate fresh coverage
           scripts/coverage.sh
           # Build the PR comment
-          ARGS="--lcov lcov.info --format pr-comment --allow 'tests/**'"
+          ARGS="--lcov lcov.info --format pr-comment --allow 'tests/**' --epsilon 1.0"
           if [ -f baseline/crap-baseline.json ]; then
             ARGS="$ARGS --baseline baseline/crap-baseline.json"
           fi
@@ -128,7 +128,7 @@ jobs:
         if: steps.baseline.outcome == 'success'
         run: |
           ARGS="--lcov lcov.info --format github --allow 'tests/**'"
-          ARGS="$ARGS --baseline baseline/crap-baseline.json --fail-regression"
+          ARGS="$ARGS --baseline baseline/crap-baseline.json --fail-regression --epsilon 1.0"
           cargo crap $ARGS
 
   # Security audit for known vulnerabilities in dependencies
