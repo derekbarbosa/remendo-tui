@@ -176,22 +176,7 @@ pub fn update(app: &mut App, msg: Message) -> Cmd {
             };
             Cmd::None
         }
-        Message::Back => {
-            if app.show_help {
-                app.show_help = false;
-                return Cmd::None;
-            }
-            if app.view_mode == ViewMode::Detail || app.view_mode == ViewMode::Loading {
-                app.view_mode = ViewMode::List;
-                app.selected_detail = None;
-                app.selected_message = None;
-                app.loading_context = None;
-                app.detail_scroll_offset = 0;
-                app.comment_positions.clear();
-                app.current_comment_index = None;
-            }
-            Cmd::None
-        }
+        Message::Back => handle_back(app),
         Message::ToggleHelp => {
             app.show_help = !app.show_help;
             Cmd::None
@@ -305,6 +290,34 @@ fn handle_view_raw_log(app: &App) -> Cmd {
         content: log,
         editor,
     }
+}
+
+/// Handle `Message::Back` — close help, clear search filter, or return from detail.
+fn handle_back(app: &mut App) -> Cmd {
+    if app.show_help {
+        app.show_help = false;
+        return Cmd::None;
+    }
+    // If we're in list view with an active filter, clear it
+    if app.view_mode == ViewMode::List && app.list_params.search.is_some() {
+        app.list_params.search = None;
+        app.list_params.page = 1;
+        app.selected_index = 0;
+        return match app.list_content {
+            ListContent::Patchsets => Cmd::FetchPatchsets(app.list_params.clone()),
+            ListContent::Messages => Cmd::FetchMessages(app.list_params.clone()),
+        };
+    }
+    if app.view_mode == ViewMode::Detail || app.view_mode == ViewMode::Loading {
+        app.view_mode = ViewMode::List;
+        app.selected_detail = None;
+        app.selected_message = None;
+        app.loading_context = None;
+        app.detail_scroll_offset = 0;
+        app.comment_positions.clear();
+        app.current_comment_index = None;
+    }
+    Cmd::None
 }
 
 /// Handle `Message::ToggleListContent` — switch between patchsets and messages.
@@ -1511,6 +1524,32 @@ mod tests {
         let cmd = update(&mut app, Message::SearchSubmit);
         assert!(app.list_params.search.is_none());
         assert!(matches!(cmd, Cmd::FetchPatchsets(_)));
+    }
+
+    #[test]
+    fn back_clears_filter_in_list_view() {
+        let mut app = App::new(Config::default());
+        app.view_mode = ViewMode::List;
+        app.list_params.search = Some("test query".to_string());
+        app.list_params.page = 3;
+        app.selected_index = 5;
+
+        let cmd = update(&mut app, Message::Back);
+        assert!(app.list_params.search.is_none());
+        assert_eq!(app.list_params.page, 1);
+        assert_eq!(app.selected_index, 0);
+        assert!(matches!(cmd, Cmd::FetchPatchsets(_)));
+    }
+
+    #[test]
+    fn back_does_nothing_without_filter() {
+        let mut app = App::new(Config::default());
+        app.view_mode = ViewMode::List;
+        app.list_params.search = None;
+
+        let cmd = update(&mut app, Message::Back);
+        assert!(app.list_params.search.is_none());
+        assert!(matches!(cmd, Cmd::None));
     }
 
     // --- ViewRawLog tests ---

@@ -105,7 +105,7 @@ the patchset list for the active remote on the right.
 | `Ctrl-d` / `Ctrl-u` | Half-page down / up |
 | `]` / `[` | Next / previous page |
 | `Enter` | Open selected patchset |
-| `Esc` | Close current view |
+| `Esc` | Close current view / Clear search |
 | `Tab` / `Shift-Tab` | Next / previous remote |
 | `Ctrl-s` | Focus sidebar |
 | `/` | Search |

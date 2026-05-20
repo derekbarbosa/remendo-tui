@@ -195,7 +195,8 @@ Search matches against:
 - Author names and email addresses
 - Subsystem tags
 
-To clear the search, press `/` again and submit an empty query.
+To clear the search and return to the full list, press `Esc`. You can
+also press `/` and submit an empty query.
 
 ### Mailing List Filter
 
@@ -327,6 +328,7 @@ view shows each finding with its full description and severity rationale.
 | `]` / `[` | Next / previous page |
 | `Enter` | Open selected item |
 | `/` | Search |
+| `Esc` | Clear search filter |
 | `b` | Toggle bookmark |
 | `B` | Toggle bookmark-only filter |
 | `s` | Cycle sort column |
