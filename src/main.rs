@@ -1,10 +1,10 @@
 //! remendo-tui binary entry point.
 
 use color_eyre::Result;
-use remendo_tui::app::RunningState;
-use remendo_tui::client::{CachingClient, HttpClient, SashikoApi};
-use remendo_tui::config::Config;
-use remendo_tui::{cmd, event, tui, ui, update};
+use remendo::app::RunningState;
+use remendo::client::{CachingClient, HttpClient, SashikoApi};
+use remendo::config::Config;
+use remendo::{cmd, event, tui, ui, update};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
 
     // Initialize file-based tracing subscriber.
-    // REMENDO_LOG env var controls filtering (fallback: RUST_LOG, default: remendo_tui=info).
+    // REMENDO_LOG env var controls filtering (fallback: RUST_LOG, default: remendo=info).
     // Log file: $XDG_STATE_HOME/remendo/remendo.log
     let _log_guard = init_tracing();
 
@@ -76,14 +76,14 @@ async fn main() -> Result<()> {
     let mut tui = tui::Tui::new(4.0, 30.0);
     tui.enter()?;
 
-    let mut app = remendo_tui::app::App::new(config);
+    let mut app = remendo::app::App::new(config);
 
     // Load bookmarks from state directory
     let state_dir = dirs::state_dir()
         .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join("remendo");
     let bookmarks_path = state_dir.join("bookmarks.json");
-    app.bookmarks = remendo_tui::bookmarks::BookmarkStore::load(&bookmarks_path);
+    app.bookmarks = remendo::bookmarks::BookmarkStore::load(&bookmarks_path);
     app.bookmarks_path = bookmarks_path;
     tracing::info!(count = app.bookmarks.len(), "bookmarks loaded");
 
@@ -172,7 +172,7 @@ fn init_tracing() -> tracing_appender::non_blocking::WorkerGuard {
 
     let env_filter = EnvFilter::try_from_env("REMENDO_LOG")
         .or_else(|_| EnvFilter::try_from_env("RUST_LOG"))
-        .unwrap_or_else(|_| EnvFilter::new("remendo_tui=info"));
+        .unwrap_or_else(|_| EnvFilter::new("remendo=info"));
 
     tracing_subscriber::fmt()
         .with_env_filter(env_filter)

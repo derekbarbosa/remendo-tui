@@ -47,13 +47,13 @@ jobs:
         run: cargo build --release
 
       - name: Strip binary
-        run: strip target/release/remendo-tui
+        run: strip target/release/remendo
 
       - name: Package archive
         run: |
-          RELEASE_NAME="remendo-tui-${{ github.ref_name }}-linux-x86_64"
+          RELEASE_NAME="remendo-${{ github.ref_name }}-linux-x86_64"
           mkdir -p "${RELEASE_NAME}"
-          cp target/release/remendo-tui "${RELEASE_NAME}/"
+          cp target/release/remendo "${RELEASE_NAME}/"
           cp README.md config.example.toml "${RELEASE_NAME}/" 2>/dev/null || true
           [ -f LICENSE ] && cp LICENSE "${RELEASE_NAME}/" || true
           tar czf "${RELEASE_NAME}.tar.gz" "${RELEASE_NAME}/"
@@ -82,9 +82,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: "remendo-tui ${{ github.ref_name }}"
+          name: "remendo ${{ github.ref_name }}"
           body: |
-            ## remendo-tui ${{ github.ref_name }}
+            ## remendo ${{ github.ref_name }}
 
             ### Download
 
@@ -93,9 +93,9 @@ jobs:
             ### Quick start
 
             ```sh
-            tar xzf remendo-tui-${{ github.ref_name }}-linux-x86_64.tar.gz
-            cd remendo-tui-${{ github.ref_name }}-linux-x86_64
-            ./remendo-tui
+            tar xzf remendo-${{ github.ref_name }}-linux-x86_64.tar.gz
+            cd remendo-${{ github.ref_name }}-linux-x86_64
+            ./remendo
             ```
           files: "*.tar.gz"
           draft: false

@@ -2,12 +2,12 @@
 
 #![allow(clippy::expect_used, clippy::panic)]
 
-use remendo_tui::app::{App, FocusPanel, RunningState, SortColumn, SortDirection, ViewMode};
-use remendo_tui::client::ApiError;
-use remendo_tui::cmd::Cmd;
-use remendo_tui::config::{Config, RemoteConfig};
-use remendo_tui::models::{MailingList, Paginated, PatchId, Patchset, PatchsetDetail};
-use remendo_tui::update::{Message, update};
+use remendo::app::{App, FocusPanel, RunningState, SortColumn, SortDirection, ViewMode};
+use remendo::client::ApiError;
+use remendo::cmd::Cmd;
+use remendo::config::{Config, RemoteConfig};
+use remendo::models::{MailingList, Paginated, PatchId, Patchset, PatchsetDetail};
+use remendo::update::{Message, update};
 
 fn app_with_remotes(names: &[&str]) -> App {
     let mut config = Config::default();
@@ -177,7 +177,7 @@ fn init_flow_populates_all_data() {
     );
     update(
         &mut app,
-        Message::StatsLoaded(Ok(remendo_tui::models::ServerStats::fixture())),
+        Message::StatsLoaded(Ok(remendo::models::ServerStats::fixture())),
     );
 
     assert_eq!(app.patchsets.items.len(), 1);
@@ -350,7 +350,7 @@ fn detail_load_error_sets_error_state() {
 
 #[test]
 fn search_flow_end_to_end() {
-    use remendo_tui::app::InputMode;
+    use remendo::app::InputMode;
 
     let mut app = app_with_remotes(&["upstream"]);
     app.list_params.page = 3; // non-default page
@@ -595,9 +595,9 @@ fn page_load_preserves_sort_and_filter() {
 
     // Load new page of patchsets
     let mut ps1 = Patchset::fixture();
-    ps1.status = remendo_tui::models::PatchsetStatus::Reviewed;
+    ps1.status = remendo::models::PatchsetStatus::Reviewed;
     let mut ps2 = Patchset::fixture();
-    ps2.status = remendo_tui::models::PatchsetStatus::FailedToApply;
+    ps2.status = remendo::models::PatchsetStatus::FailedToApply;
 
     let paginated = Paginated {
         items: vec![ps1, ps2],
@@ -610,11 +610,11 @@ fn page_load_preserves_sort_and_filter() {
     // Sort should have been reapplied: FailedToApply (key=0) before Reviewed (key=7)
     assert_eq!(
         app.patchsets.items[0].status,
-        remendo_tui::models::PatchsetStatus::FailedToApply
+        remendo::models::PatchsetStatus::FailedToApply
     );
     assert_eq!(
         app.patchsets.items[1].status,
-        remendo_tui::models::PatchsetStatus::Reviewed
+        remendo::models::PatchsetStatus::Reviewed
     );
     // Filter flag still active
     assert!(app.show_bookmarks_only);

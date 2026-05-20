@@ -50,13 +50,13 @@ Requires [Rust](https://rustup.rs/) (edition 2024, stable toolchain).
 git clone https://github.com/your-org/remendo-tui.git
 cd remendo-tui
 cargo build --release
-# Binary is at target/release/remendo-tui
+# Binary is at target/release/remendo
 ```
 
 ### Cargo install (once published)
 
 ```sh
-cargo install remendo-tui
+cargo install remendo
 ```
 
 ## Quick Start
@@ -89,7 +89,7 @@ empty remote list.
 ### 2. Launch
 
 ```sh
-remendo-tui
+remendo
 ```
 
 The interface shows a sidebar listing your configured remotes on the left and
@@ -137,16 +137,16 @@ if the application encounters an error.
 
 ```sh
 # Default (info-level for remendo, nothing from deps)
-remendo-tui
+remendo
 
 # Debug mode (all messages and commands logged)
-REMENDO_LOG=debug remendo-tui
+REMENDO_LOG=debug remendo
 
 # Full trace (every tick, render, scroll event)
-REMENDO_LOG=remendo_tui=trace remendo-tui
+REMENDO_LOG=remendo=trace remendo
 
 # Debug with dependency logs
-REMENDO_LOG=remendo_tui=debug,reqwest=debug remendo-tui
+REMENDO_LOG=remendo=debug,reqwest=debug remendo
 ```
 
 Falls back to `RUST_LOG` if `REMENDO_LOG` is not set.

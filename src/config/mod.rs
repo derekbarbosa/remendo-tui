@@ -28,7 +28,7 @@ use serde::Deserialize;
 /// # Examples
 ///
 /// ```
-/// use remendo_tui::config::Config;
+/// use remendo::config::Config;
 ///
 /// // Default config has no remotes, default cache, default keybindings
 /// let config = Config::default();

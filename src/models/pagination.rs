@@ -10,7 +10,7 @@ use serde::Deserialize;
 /// # Examples
 ///
 /// ```
-/// use remendo_tui::models::{Paginated, Patchset};
+/// use remendo::models::{Paginated, Patchset};
 ///
 /// // An empty paginated response
 /// let empty: Paginated<Patchset> = Paginated {

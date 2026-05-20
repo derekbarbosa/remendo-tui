@@ -1,5 +1,5 @@
 [package]
-name = "remendo-tui"
+name = "remendo"
 version = "0.1.0"
 description = "A terminal interface for Sashiko agentic patch review instances"
 authors = ["derekbarbosa <derekasobrab@gmail.com>"]
@@ -48,7 +48,7 @@ tracing-appender = "0.2.5"
 [dev-dependencies]
 insta = { version = "1", default-features = false }
 pretty_assertions = "1"
-remendo-tui = { path = ".", features = ["test-support"] }
+remendo = { path = ".", features = ["test-support"] }
 wiremock = "0.6"
 
 [lints.rust]

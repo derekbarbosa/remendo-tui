@@ -110,11 +110,11 @@ pub enum Message {
 /// # Examples
 ///
 /// ```
-/// use remendo_tui::app::App;
-/// use remendo_tui::config::Config;
-/// use remendo_tui::update::{update, Message};
-/// use remendo_tui::cmd::Cmd;
-/// use remendo_tui::app::RunningState;
+/// use remendo::app::App;
+/// use remendo::config::Config;
+/// use remendo::update::{update, Message};
+/// use remendo::cmd::Cmd;
+/// use remendo::app::RunningState;
 ///
 /// let mut app = App::new(Config::default());
 /// let cmd = update(&mut app, Message::Quit);

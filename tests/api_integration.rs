@@ -2,9 +2,9 @@
 
 #![allow(clippy::expect_used)]
 
-use remendo_tui::client::{ApiError, HttpClient, ListParams, SashikoApi};
-use remendo_tui::config::RemoteConfig;
-use remendo_tui::models::{Paginated, PatchId, Patchset, PatchsetDetail, ServerStats};
+use remendo::client::{ApiError, HttpClient, ListParams, SashikoApi};
+use remendo::config::RemoteConfig;
+use remendo::models::{Paginated, PatchId, Patchset, PatchsetDetail, ServerStats};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Respond, ResponseTemplate};

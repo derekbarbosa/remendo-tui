@@ -33,7 +33,7 @@ If you launch `remendo` without a config file, it starts with defaults and
 an empty remote list:
 
 ```sh
-remendo-tui
+remendo
 ```
 
 You'll see an empty interface with a message prompting you to configure a

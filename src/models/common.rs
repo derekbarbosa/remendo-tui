@@ -10,7 +10,7 @@ use std::fmt;
 /// # Examples
 ///
 /// ```
-/// use remendo_tui::models::Severity;
+/// use remendo::models::Severity;
 ///
 /// let low = Severity::Low;
 /// let critical = Severity::Critical;
