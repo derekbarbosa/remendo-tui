@@ -1,13 +1,27 @@
 [package]
 name = "remendo-tui"
 version = "0.1.0"
-description = "A terminal based interface for interacting with agentic patch review mechanisms"
+description = "A terminal interface for Sashiko agentic patch review instances"
 authors = ["derekbarbosa <derekasobrab@gmail.com>"]
 license = "AGPL-3.0-or-later"
 edition = "2024"
 rust-version = "1.95.0"
 repository = "https://github.com/derekbarbosa/remendo-tui"
 homepage = "https://derekbarbosa.github.io/remendo-tui/"
+readme = "README.md"
+keywords = ["linux", "kernel", "code-review", "tui", "sashiko"]
+categories = ["command-line-utilities", "development-tools"]
+# Exclude tracked files that aren't needed in the published crate.
+# Gitignored files (lcov.info, crap-baseline.json, etc.) are excluded automatically.
+exclude = [
+    ".github/",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "Makefile",
+    "scripts/",
+    "static/",
+    "rust-toolchain.toml",
+]
 
 [features]
 test-support = []
