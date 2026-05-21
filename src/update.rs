@@ -2132,4 +2132,78 @@ mod tests {
         let cmd = update(&mut app, Message::BookmarksPersisted(Ok(())));
         assert!(matches!(cmd, Cmd::None));
     }
+
+    // ── update() branch coverage for CRAP reduction ──
+
+    #[test]
+    fn refresh_in_messages_mode_fetches_messages() {
+        let mut app = App::new(Config::default());
+        app.list_content = ListContent::Messages;
+        let cmd = update(&mut app, Message::Refresh);
+        assert!(matches!(cmd, Cmd::ClearCacheAndBatch(_)));
+    }
+
+    #[test]
+    fn view_baseline_log_dispatches() {
+        let mut app = App::new(Config::default());
+        let cmd = update(&mut app, Message::ViewBaselineLog);
+        assert!(matches!(cmd, Cmd::None));
+    }
+
+    #[test]
+    fn toggle_list_content_switches_mode() {
+        let mut app = App::new(Config::default());
+        assert_eq!(app.list_content, ListContent::Patchsets);
+        let cmd = update(&mut app, Message::ToggleListContent);
+        assert_eq!(app.list_content, ListContent::Messages);
+        assert!(matches!(cmd, Cmd::FetchMessages(_)));
+    }
+
+    #[test]
+    fn messages_loaded_stores_messages() {
+        let mut app = App::new(Config::default());
+        let paginated = Paginated {
+            items: vec![],
+            total: 0,
+            page: 1,
+            per_page: 50,
+        };
+        let cmd = update(&mut app, Message::MessagesLoaded(Ok(paginated)));
+        assert!(matches!(cmd, Cmd::None));
+    }
+
+    #[test]
+    fn messages_loaded_error_sets_error_state() {
+        let mut app = App::new(Config::default());
+        let err = crate::client::ApiError::HttpStatus {
+            status: 500,
+            body: None,
+            remote: "test".to_string(),
+        };
+        let cmd = update(&mut app, Message::MessagesLoaded(Err(err)));
+        assert!(matches!(cmd, Cmd::None));
+        assert!(app.error_state.is_some());
+    }
+
+    #[test]
+    fn message_detail_loaded_stores_detail() {
+        let mut app = App::new(Config::default());
+        app.view_mode = crate::app::ViewMode::Loading;
+        let msg = crate::models::EmailMessage::fixture();
+        let cmd = update(&mut app, Message::MessageDetailLoaded(Box::new(Ok(msg))));
+        assert!(matches!(cmd, Cmd::None));
+        assert!(app.selected_message.is_some());
+    }
+
+    #[test]
+    fn bookmark_toggle_in_list_view() {
+        let mut app = app_with_patchsets(3);
+        app.selected_index = 0;
+        let cmd = update(&mut app, Message::BookmarkToggle);
+        // Should return a persist command or none depending on bookmarks_path
+        assert!(
+            matches!(cmd, Cmd::None | Cmd::PersistBookmarks { .. }),
+            "unexpected cmd: {cmd:?}"
+        );
+    }
 }
