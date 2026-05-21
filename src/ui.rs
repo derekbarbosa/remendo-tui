@@ -595,25 +595,13 @@ fn strip_review_quoting(line: &str) -> &str {
     s
 }
 
-fn render_message_detail(app: &App, frame: &mut Frame, area: Rect, palette: &ColorPalette) {
-    let border_color = panel_border_color(app.focus, FocusPanel::PatchsetList, palette);
-
-    let Some(ref msg) = app.selected_message else {
-        let block = Block::default()
-            .title(" Loading message... ".bold())
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(border_color));
-        frame.render_widget(Paragraph::new("").block(block), area);
-        return;
-    };
-
-    let subject = msg.subject.as_deref().unwrap_or("(no subject)");
-    let title = format!(" {subject} ");
-    let block = Block::default()
-        .title(title.bold())
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(border_color));
-
+/// Build content lines for the message detail view.
+///
+/// Pure data preparation — no frame rendering. Testable independently.
+fn message_detail_lines<'a>(
+    msg: &'a crate::models::EmailMessage,
+    palette: &'a ColorPalette,
+) -> Vec<Line<'a>> {
     let mut lines: Vec<Line> = Vec::new();
 
     // Header
@@ -670,6 +658,30 @@ fn render_message_detail(app: &App, frame: &mut Frame, area: Rect, palette: &Col
             lines.push(Line::styled(diff_line, style));
         }
     }
+
+    lines
+}
+
+fn render_message_detail(app: &App, frame: &mut Frame, area: Rect, palette: &ColorPalette) {
+    let border_color = panel_border_color(app.focus, FocusPanel::PatchsetList, palette);
+
+    let Some(ref msg) = app.selected_message else {
+        let block = Block::default()
+            .title(" Loading message... ".bold())
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(border_color));
+        frame.render_widget(Paragraph::new("").block(block), area);
+        return;
+    };
+
+    let subject = msg.subject.as_deref().unwrap_or("(no subject)");
+    let title = format!(" {subject} ");
+    let block = Block::default()
+        .title(title.bold())
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(border_color));
+
+    let lines = message_detail_lines(msg, palette);
 
     let scroll_offset = u16::try_from(app.detail_scroll_offset).unwrap_or(u16::MAX);
     let paragraph = Paragraph::new(lines)
@@ -1582,5 +1594,79 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         assert!(text.contains("Patches ("), "got: {text}");
+    }
+
+    #[test]
+    fn message_detail_lines_basic() {
+        let palette = ColorPalette::default();
+        let msg = crate::models::EmailMessage::fixture();
+        let lines = message_detail_lines(&msg, &palette);
+        let text: String = lines
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(text.contains("From:"), "got: {text}");
+        assert!(text.contains("Date:"), "got: {text}");
+    }
+
+    #[test]
+    fn message_detail_lines_with_optional_fields() {
+        let palette = ColorPalette::default();
+        let mut msg = crate::models::EmailMessage::fixture();
+        msg.to = Some("recipient@example.com".to_string());
+        msg.cc = Some("cc@example.com".to_string());
+        msg.mailing_list = Some("linux-kernel".to_string());
+        let lines = message_detail_lines(&msg, &palette);
+        let text: String = lines
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(text.contains("To:"), "got: {text}");
+        assert!(text.contains("Cc:"), "got: {text}");
+        assert!(text.contains("List:"), "got: {text}");
+    }
+
+    #[test]
+    fn message_detail_lines_with_body() {
+        let palette = ColorPalette::default();
+        let mut msg = crate::models::EmailMessage::fixture();
+        msg.body = Some("Hello world\nSecond line".to_string());
+        let lines = message_detail_lines(&msg, &palette);
+        let text: String = lines
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(text.contains("Hello world"), "got: {text}");
+        assert!(text.contains("Second line"), "got: {text}");
+    }
+
+    #[test]
+    fn message_detail_lines_no_body() {
+        let palette = ColorPalette::default();
+        let mut msg = crate::models::EmailMessage::fixture();
+        msg.body = None;
+        let lines = message_detail_lines(&msg, &palette);
+        let text: String = lines
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(text.contains("(no body)"), "got: {text}");
+    }
+
+    #[test]
+    fn message_detail_lines_with_diff() {
+        let palette = ColorPalette::default();
+        let msg = crate::models::EmailMessage::fixture_with_diff();
+        let lines = message_detail_lines(&msg, &palette);
+        let text: String = lines
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(text.contains("Diff"), "got: {text}");
     }
 }
