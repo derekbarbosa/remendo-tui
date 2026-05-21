@@ -55,13 +55,40 @@ pub enum Cmd {
     Batch(Vec<Cmd>),
 }
 
+/// Spawn an async fetch task if the client exists, or send an error message.
+///
+/// This helper eliminates the repeated `if let Some(client) = clients.get(...)
+/// { clone + spawn } else { send error }` pattern across all fetch commands.
+fn spawn_fetch<S, F, Fut, T>(
+    clients: &HashMap<String, Arc<dyn SashikoApi>, S>,
+    active_remote: &str,
+    msg_tx: &mpsc::UnboundedSender<Message>,
+    fetch: F,
+    on_missing: fn(&str) -> Message,
+) where
+    S: ::std::hash::BuildHasher,
+    F: FnOnce(Arc<dyn SashikoApi>) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = T> + Send,
+    T: Into<Message> + Send + 'static,
+{
+    if let Some(client) = clients.get(active_remote) {
+        let client = Arc::clone(client);
+        let tx = msg_tx.clone();
+        tokio::spawn(async move {
+            let result = fetch(client).await;
+            let _ = tx.send(result.into());
+        });
+    } else {
+        let _ = msg_tx.send(on_missing(active_remote));
+    }
+}
+
 /// Execute a command by spawning async tasks that send results
 /// back through `msg_tx`.
 ///
 /// The `active_remote` key is used to look up the correct client
 /// from `clients`. If the remote is not found, an error message
 /// is sent instead.
-#[allow(clippy::too_many_lines)]
 pub fn execute<S: ::std::hash::BuildHasher>(
     cmd: Cmd,
     clients: &HashMap<String, Arc<dyn SashikoApi>, S>,
@@ -78,59 +105,45 @@ pub fn execute<S: ::std::hash::BuildHasher>(
                 mailing_list = ?params.mailing_list,
                 "cmd: fetch patchsets"
             );
-            if let Some(client) = clients.get(active_remote) {
-                let client = Arc::clone(client);
-                let tx = msg_tx.clone();
-                tokio::spawn(async move {
-                    let result = client.patchsets(&params).await;
-                    let _ = tx.send(Message::PatchsetsLoaded(result));
-                });
-            } else {
-                let _ = msg_tx.send(Message::PatchsetsLoaded(Err(no_remote_error(
-                    active_remote,
-                ))));
-            }
+            spawn_fetch(
+                clients,
+                active_remote,
+                msg_tx,
+                |c| async move { Message::PatchsetsLoaded(c.patchsets(&params).await) },
+                |r| Message::PatchsetsLoaded(Err(no_remote_error(r))),
+            );
         }
         Cmd::FetchLists => {
             tracing::debug!(remote = active_remote, "cmd: fetch lists");
-            if let Some(client) = clients.get(active_remote) {
-                let client = Arc::clone(client);
-                let tx = msg_tx.clone();
-                tokio::spawn(async move {
-                    let result = client.lists().await;
-                    let _ = tx.send(Message::ListsLoaded(result));
-                });
-            } else {
-                let _ = msg_tx.send(Message::ListsLoaded(Err(no_remote_error(active_remote))));
-            }
+            spawn_fetch(
+                clients,
+                active_remote,
+                msg_tx,
+                |c| async move { Message::ListsLoaded(c.lists().await) },
+                |r| Message::ListsLoaded(Err(no_remote_error(r))),
+            );
         }
         Cmd::FetchStats => {
             tracing::debug!(remote = active_remote, "cmd: fetch stats");
-            if let Some(client) = clients.get(active_remote) {
-                let client = Arc::clone(client);
-                let tx = msg_tx.clone();
-                tokio::spawn(async move {
-                    let result = client.stats().await;
-                    let _ = tx.send(Message::StatsLoaded(result));
-                });
-            } else {
-                let _ = msg_tx.send(Message::StatsLoaded(Err(no_remote_error(active_remote))));
-            }
+            spawn_fetch(
+                clients,
+                active_remote,
+                msg_tx,
+                |c| async move { Message::StatsLoaded(c.stats().await) },
+                |r| Message::StatsLoaded(Err(no_remote_error(r))),
+            );
         }
         Cmd::FetchPatchsetDetail(id) => {
             tracing::debug!(remote = active_remote, id = %id, "cmd: fetch patchset detail");
-            if let Some(client) = clients.get(active_remote) {
-                let client = Arc::clone(client);
-                let tx = msg_tx.clone();
-                tokio::spawn(async move {
-                    let result = client.patchset_summary(&id).await;
-                    let _ = tx.send(Message::PatchsetDetailLoaded(Box::new(result)));
-                });
-            } else {
-                let _ = msg_tx.send(Message::PatchsetDetailLoaded(Box::new(Err(
-                    no_remote_error(active_remote),
-                ))));
-            }
+            spawn_fetch(
+                clients,
+                active_remote,
+                msg_tx,
+                |c| async move {
+                    Message::PatchsetDetailLoaded(Box::new(c.patchset_summary(&id).await))
+                },
+                |r| Message::PatchsetDetailLoaded(Box::new(Err(no_remote_error(r)))),
+            );
         }
         Cmd::FetchMessages(params) => {
             tracing::debug!(
@@ -138,36 +151,25 @@ pub fn execute<S: ::std::hash::BuildHasher>(
                 page = params.page,
                 "cmd: fetch messages"
             );
-            if let Some(client) = clients.get(active_remote) {
-                let client = Arc::clone(client);
-                let tx = msg_tx.clone();
-                tokio::spawn(async move {
-                    let result = client.messages(&params).await;
-                    let _ = tx.send(Message::MessagesLoaded(result));
-                });
-            } else {
-                let _ = msg_tx.send(Message::MessagesLoaded(Err(no_remote_error(active_remote))));
-            }
+            spawn_fetch(
+                clients,
+                active_remote,
+                msg_tx,
+                |c| async move { Message::MessagesLoaded(c.messages(&params).await) },
+                |r| Message::MessagesLoaded(Err(no_remote_error(r))),
+            );
         }
         Cmd::FetchMessageDetail(id) => {
             tracing::debug!(remote = active_remote, id = %id, "cmd: fetch message detail");
-            if let Some(client) = clients.get(active_remote) {
-                let client = Arc::clone(client);
-                let tx = msg_tx.clone();
-                tokio::spawn(async move {
-                    let result = client.message_detail(&id).await;
-                    let _ = tx.send(Message::MessageDetailLoaded(Box::new(result)));
-                });
-            } else {
-                let _ = msg_tx.send(Message::MessageDetailLoaded(Box::new(Err(
-                    no_remote_error(active_remote),
-                ))));
-            }
+            spawn_fetch(
+                clients,
+                active_remote,
+                msg_tx,
+                |c| async move { Message::MessageDetailLoaded(Box::new(c.message_detail(&id).await)) },
+                |r| Message::MessageDetailLoaded(Box::new(Err(no_remote_error(r)))),
+            );
         }
         Cmd::OpenEditor { .. } => {
-            // OpenEditor is handled in the main loop (main.rs) where the TUI
-            // can be suspended before launching the editor. It should never
-            // reach execute().
             tracing::error!("Cmd::OpenEditor reached execute() — should be handled in main loop");
         }
         Cmd::PersistBookmarks { bookmarks, path } => {
