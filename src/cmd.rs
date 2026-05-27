@@ -206,6 +206,10 @@ fn no_remote_error(remote: &str) -> ApiError {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::client::MockClient;
+    use crate::models::{
+        EmailMessage, MailingList, Paginated, Patchset, PatchsetDetail, ServerStats,
+    };
 
     #[test]
     fn cmd_none_is_default() {
@@ -222,5 +226,274 @@ mod tests {
             Cmd::FetchStats,
         ]);
         assert!(matches!(cmd, Cmd::Batch(cmds) if cmds.len() == 3));
+    }
+
+    /// Build a single-remote client map with the given `MockClient`.
+    fn mock_clients(mock: Arc<MockClient>) -> HashMap<String, Arc<dyn SashikoApi>> {
+        let mut clients: HashMap<String, Arc<dyn SashikoApi>> = HashMap::new();
+        clients.insert("test".to_string(), mock as Arc<dyn SashikoApi>);
+        clients
+    }
+
+    // -- execute() tests --
+
+    #[tokio::test]
+    async fn execute_none_sends_nothing() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let clients: HashMap<String, Arc<dyn SashikoApi>> = HashMap::new();
+        execute(Cmd::None, &clients, "test", &tx);
+        // Give a moment for any spurious sends
+        tokio::task::yield_now().await;
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_patchsets_ok() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mock = Arc::new(MockClient::new());
+        mock.set_patchsets(Ok(Paginated {
+            items: vec![Patchset::fixture()],
+            total: 1,
+            page: 1,
+            per_page: 50,
+        }));
+        let clients = mock_clients(mock);
+        execute(
+            Cmd::FetchPatchsets(ListParams::default()),
+            &clients,
+            "test",
+            &tx,
+        );
+        let msg = rx.recv().await.expect("should receive message");
+        assert!(matches!(msg, Message::PatchsetsLoaded(Ok(p)) if p.items.len() == 1));
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_patchsets_missing_remote() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let clients: HashMap<String, Arc<dyn SashikoApi>> = HashMap::new();
+        execute(
+            Cmd::FetchPatchsets(ListParams::default()),
+            &clients,
+            "missing",
+            &tx,
+        );
+        let msg = rx.recv().await.expect("should receive error");
+        assert!(matches!(msg, Message::PatchsetsLoaded(Err(_))));
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_lists_ok() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mock = Arc::new(MockClient::new());
+        mock.set_lists(Ok(vec![MailingList::fixture()]));
+        let clients = mock_clients(mock);
+        execute(Cmd::FetchLists, &clients, "test", &tx);
+        let msg = rx.recv().await.expect("should receive message");
+        assert!(matches!(msg, Message::ListsLoaded(Ok(lists)) if lists.len() == 1));
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_lists_missing_remote() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let clients: HashMap<String, Arc<dyn SashikoApi>> = HashMap::new();
+        execute(Cmd::FetchLists, &clients, "missing", &tx);
+        let msg = rx.recv().await.expect("should receive error");
+        assert!(matches!(msg, Message::ListsLoaded(Err(_))));
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_stats_ok() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mock = Arc::new(MockClient::new());
+        mock.set_stats(Ok(ServerStats::fixture()));
+        let clients = mock_clients(mock);
+        execute(Cmd::FetchStats, &clients, "test", &tx);
+        let msg = rx.recv().await.expect("should receive message");
+        assert!(matches!(msg, Message::StatsLoaded(Ok(_))));
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_stats_missing_remote() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let clients: HashMap<String, Arc<dyn SashikoApi>> = HashMap::new();
+        execute(Cmd::FetchStats, &clients, "missing", &tx);
+        let msg = rx.recv().await.expect("should receive error");
+        assert!(matches!(msg, Message::StatsLoaded(Err(_))));
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_patchset_detail_ok() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mock = Arc::new(MockClient::new());
+        mock.set_patch_detail(Ok(PatchsetDetail::fixture()));
+        let clients = mock_clients(mock);
+        execute(
+            Cmd::FetchPatchsetDetail(PatchId::Numeric(1)),
+            &clients,
+            "test",
+            &tx,
+        );
+        let msg = rx.recv().await.expect("should receive message");
+        assert!(matches!(msg, Message::PatchsetDetailLoaded(ref r) if r.is_ok()));
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_patchset_detail_missing_remote() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let clients: HashMap<String, Arc<dyn SashikoApi>> = HashMap::new();
+        execute(
+            Cmd::FetchPatchsetDetail(PatchId::Numeric(1)),
+            &clients,
+            "missing",
+            &tx,
+        );
+        let msg = rx.recv().await.expect("should receive error");
+        assert!(matches!(msg, Message::PatchsetDetailLoaded(ref r) if r.is_err()));
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_messages_ok() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mock = Arc::new(MockClient::new());
+        mock.set_messages(Ok(Paginated {
+            items: vec![EmailMessage::fixture()],
+            total: 1,
+            page: 1,
+            per_page: 50,
+        }));
+        let clients = mock_clients(mock);
+        execute(
+            Cmd::FetchMessages(ListParams::default()),
+            &clients,
+            "test",
+            &tx,
+        );
+        let msg = rx.recv().await.expect("should receive message");
+        assert!(matches!(msg, Message::MessagesLoaded(Ok(p)) if p.items.len() == 1));
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_messages_missing_remote() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let clients: HashMap<String, Arc<dyn SashikoApi>> = HashMap::new();
+        execute(
+            Cmd::FetchMessages(ListParams::default()),
+            &clients,
+            "missing",
+            &tx,
+        );
+        let msg = rx.recv().await.expect("should receive error");
+        assert!(matches!(msg, Message::MessagesLoaded(Err(_))));
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_message_detail_ok() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mock = Arc::new(MockClient::new());
+        mock.set_message_detail(Ok(EmailMessage::fixture()));
+        let clients = mock_clients(mock);
+        execute(
+            Cmd::FetchMessageDetail(PatchId::Numeric(1)),
+            &clients,
+            "test",
+            &tx,
+        );
+        let msg = rx.recv().await.expect("should receive message");
+        assert!(matches!(msg, Message::MessageDetailLoaded(ref r) if r.is_ok()));
+    }
+
+    #[tokio::test]
+    async fn execute_fetch_message_detail_missing_remote() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let clients: HashMap<String, Arc<dyn SashikoApi>> = HashMap::new();
+        execute(
+            Cmd::FetchMessageDetail(PatchId::Numeric(1)),
+            &clients,
+            "missing",
+            &tx,
+        );
+        let msg = rx.recv().await.expect("should receive error");
+        assert!(matches!(msg, Message::MessageDetailLoaded(ref r) if r.is_err()));
+    }
+
+    #[tokio::test]
+    async fn execute_open_editor_is_noop() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let clients: HashMap<String, Arc<dyn SashikoApi>> = HashMap::new();
+        execute(
+            Cmd::OpenEditor {
+                content: "test".to_string(),
+                editor: "vim".to_string(),
+            },
+            &clients,
+            "test",
+            &tx,
+        );
+        tokio::task::yield_now().await;
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn execute_persist_bookmarks() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let clients: HashMap<String, Arc<dyn SashikoApi>> = HashMap::new();
+        let tmp = tempfile::NamedTempFile::new().expect("tempfile");
+        execute(
+            Cmd::PersistBookmarks {
+                bookmarks: BookmarkStore::new(),
+                path: tmp.path().to_path_buf(),
+            },
+            &clients,
+            "test",
+            &tx,
+        );
+        let msg = rx.recv().await.expect("should receive message");
+        assert!(matches!(msg, Message::BookmarksPersisted(Ok(()))));
+    }
+
+    #[tokio::test]
+    async fn execute_batch_runs_all() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mock = Arc::new(MockClient::new());
+        mock.set_stats(Ok(ServerStats::fixture()));
+        mock.set_lists(Ok(vec![MailingList::fixture()]));
+        let clients = mock_clients(mock);
+        execute(
+            Cmd::Batch(vec![Cmd::FetchStats, Cmd::FetchLists]),
+            &clients,
+            "test",
+            &tx,
+        );
+        let msg1 = rx.recv().await.expect("first message");
+        let msg2 = rx.recv().await.expect("second message");
+        // Both should succeed (order may vary since async)
+        let mut got_stats = false;
+        let mut got_lists = false;
+        for msg in [msg1, msg2] {
+            match msg {
+                Message::StatsLoaded(Ok(_)) => got_stats = true,
+                Message::ListsLoaded(Ok(_)) => got_lists = true,
+                _ => {}
+            }
+        }
+        assert!(got_stats, "should have received StatsLoaded");
+        assert!(got_lists, "should have received ListsLoaded");
+    }
+
+    #[tokio::test]
+    async fn execute_clear_cache_and_batch() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let mock = Arc::new(MockClient::new());
+        mock.set_stats(Ok(ServerStats::fixture()));
+        let clients = mock_clients(mock);
+        execute(
+            Cmd::ClearCacheAndBatch(vec![Cmd::FetchStats]),
+            &clients,
+            "test",
+            &tx,
+        );
+        let msg = rx.recv().await.expect("should receive message");
+        assert!(matches!(msg, Message::StatsLoaded(Ok(_))));
     }
 }

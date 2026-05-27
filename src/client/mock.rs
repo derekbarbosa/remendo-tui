@@ -127,9 +127,7 @@ impl SashikoApi for MockClient {
     }
 
     async fn patchset_summary(&self, _id: &PatchId) -> Result<PatchsetDetail, ApiError> {
-        Err(ApiError::Configuration(
-            "mock: patchset_summary not implemented".to_string(),
-        ))
+        Self::take_result(&self.patch_detail_response, "patchset_summary")
     }
 
     async fn message_detail(&self, _id: &PatchId) -> Result<EmailMessage, ApiError> {

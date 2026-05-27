@@ -14,6 +14,14 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
+    run().await
+}
+
+/// Application entry point — separated from `main()` for testability.
+///
+/// Contains all setup (config, clients, TUI, bookmarks) and the
+/// main event loop. Extracted so `main()` stays at CC=1.
+async fn run() -> Result<()> {
     color_eyre::install()?;
 
     // Initialize file-based tracing subscriber.
