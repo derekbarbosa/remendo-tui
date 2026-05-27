@@ -2,7 +2,7 @@
 
 All notable changes to remendo are documented here.
 
-## [0.1.0] — 2026-05-20
+## [0.2.0] — 2026-05-27
 
 ### Bug Fixes
 
@@ -18,6 +18,11 @@ All notable changes to remendo are documented here.
 
 ### CI/CD
 
+- Deps(deps): bump serde_json in the rust-minor group
+- Merge pull request #8 from derekbarbosa/dependabot/github_actions/actions/upload-artifact-7
+- Ci: bump actions/upload-artifact from 4 to 7
+- Merge pull request #9 from derekbarbosa/dependabot/github_actions/actions/upload-pages-artifact-5
+- Ci: bump actions/upload-pages-artifact from 3 to 5
 - Set CRAP regression epsilon to 1.0 to ignore coverage noise
 - README: adjust link to CRAP badge
 - Document series7 features: sorting, filtering, diff highlighting, indentation
@@ -70,10 +75,12 @@ All notable changes to remendo are documented here.
 
 ### Other
 
+- Merge pull request #10 from derekbarbosa/dependabot/cargo/rust-minor-9a0cd8e38c
 - Distinguish reviewer commentary from quoted diff in inline reviews
 
 ### Refactoring
 
+- Refactor execute(): extract spawn_fetch helper to reduce CC
 - Remove nightly workflow: incompatible with immutable releases
 - Move Pages assets to static/, redesign index with denim aesthetic
 - Add GitHub Pages deployment for rustdoc
@@ -83,6 +90,10 @@ All notable changes to remendo are documented here.
 
 ### Testing
 
+- Add execute() async tests and extract run() from main()
+- Extract message_detail_lines() from render_message_detail()
+- Add 8 tests for update() branch coverage — CRAP 39→38
+- README: fix install nit
 - Rename crate from remendo-tui to remendo
 - Track insta snapshot files for CI
 - Pin Rust toolchain to 1.95.0, fix duration_suboptimal_units lint
