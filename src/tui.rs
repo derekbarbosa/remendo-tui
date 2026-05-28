@@ -199,6 +199,7 @@ impl Tui {
     ///
     /// Returns an error if terminal state cannot be restored.
     pub fn resume(&mut self) -> Result<()> {
+        self.drain_events();
         terminal::enable_raw_mode()?;
         crossterm::execute!(
             stdout(),
@@ -211,6 +212,19 @@ impl Tui {
         let backend = ratatui::prelude::CrosstermBackend::new(stdout());
         self.terminal = Some(ratatui::Terminal::new(backend)?);
         Ok(())
+    }
+
+    /// Discard all queued events from the event channel.
+    ///
+    /// Called by [`resume`](Self::resume) to prevent stale input that
+    /// accumulated during a [`suspend`](Self::suspend) from being
+    /// interpreted as TUI commands. The background event handler task
+    /// keeps running during suspend, so its `EventStream` can race
+    /// with the child process for stdin and capture keypresses (e.g.,
+    /// `q` to quit an editor) that would otherwise cause unintended
+    /// actions like quitting the app.
+    fn drain_events(&mut self) {
+        while self.event_rx.try_recv().is_ok() {}
     }
 
     /// Reset terminal state (used by both exit and panic hook).
@@ -243,5 +257,37 @@ fn translate_crossterm_event(event: crossterm::event::Event) -> Event {
         crossterm::event::Event::FocusGained => Event::FocusGained,
         crossterm::event::Event::FocusLost => Event::FocusLost,
         crossterm::event::Event::Paste(text) => Event::Paste(text),
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn drain_events_empties_channel() {
+        let mut tui = Tui::new(1.0, 1.0);
+        // Inject several events via the sender (simulating the background task)
+        tui.event_tx.send(Event::Tick).unwrap();
+        tui.event_tx.send(Event::Render).unwrap();
+        tui.event_tx
+            .send(Event::Key(crossterm::event::KeyEvent::new(
+                crossterm::event::KeyCode::Char('q'),
+                crossterm::event::KeyModifiers::NONE,
+            )))
+            .unwrap();
+
+        tui.drain_events();
+
+        // Channel should be empty
+        assert!(tui.event_rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn drain_events_on_empty_channel_is_noop() {
+        let mut tui = Tui::new(1.0, 1.0);
+        tui.drain_events();
+        assert!(tui.event_rx.try_recv().is_err());
     }
 }
